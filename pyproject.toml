@@ -1,4 +1,4 @@
-#Example 
+#Example from ChatGPT. Might need to edit for our purposes.
 
 [tool.pytest.ini_options]
 # Directories where tests live
