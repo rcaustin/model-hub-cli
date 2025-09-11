@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import platform
 import subprocess
 from pathlib import Path
 
@@ -21,8 +22,11 @@ Arguments:
 def main(arg: str) -> int:
     if arg == "install":
         typer.echo("Installing dependencies to virtual environment...")
-        subprocess.run(["bash", "setup.sh"])
-        raise typer.Exit()
+        if platform.system() == "Windows":
+            result = subprocess.run(["cmd.exe", "/c", "setup.bat"])
+        else:
+            result = subprocess.run(["bash", "setup.sh"])
+        raise typer.Exit(code=result)
     elif arg == "test":
         typer.echo("Running Pytest suite...")
     elif Path(arg).is_absolute():
