@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 import platform
 import subprocess
+import sys
 from pathlib import Path
 from urllib.parse import urlparse
-
-import sys
 
 
 def print_usage() -> None:
