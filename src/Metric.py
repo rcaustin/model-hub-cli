@@ -1,6 +1,13 @@
-import time
+from abc import ABC, abstractmethod
+from typing import Union
 
 
-def getMetric():
-    time.sleep(2)
-    return 1
+class Metric(ABC):
+    @abstractmethod
+    def evaluate(
+        self,
+        modelLink: str = "",
+        datasetLink: str = "",
+        codeLink: str = ""
+    ) -> Union[float, dict[str, float]]:
+        pass
