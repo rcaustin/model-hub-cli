@@ -1,6 +1,7 @@
-from Model import Model
-from Metric import Metric
 import json
+
+from src.Metric import Metric
+from src.Model import Model
 
 
 class ModelCatalogue:
