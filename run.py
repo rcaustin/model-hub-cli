@@ -2,8 +2,13 @@
 import platform
 import subprocess
 import sys
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
 from urllib.parse import urlparse
+
+from src.Model import Model
+from src.ModelCatalogue import ModelCatalogue
 
 
 def print_usage() -> None:
@@ -71,7 +76,7 @@ def read_urls_from_file(file_path: str) -> list[str]:
     with open(file_path, "r", encoding="ascii") as file:
         for line in file:
             url = line.strip()
-            if url: # skip empty lines
+            if url:  # skip empty lines
                 urls.append(url)
     return urls
 
@@ -88,7 +93,11 @@ def run_install() -> int:
         int: the return code from the subprocess command
     """
     print("Installing dependencies to virtual environment...")
-    cmd = ["cmd.exe", "/c", "setup.bat"] if platform.system() == "Windows" else ["bash", "setup.sh"]
+    cmd = (
+        ["cmd.exe", "/c", "setup.bat"]
+        if platform.system() == "Windows"
+        else ["bash", "setup.sh"]
+    )
     result = subprocess.run(cmd)
     return result.returncode
 
@@ -109,14 +118,14 @@ def run_catalogue(file_path: str) -> int:
     """
     Process an ASCII-encoded, newline-delimited file containing URLs.
 
-    Reads each URL from the file and classifies it using `classify_url`.
-    Prints the classification results or error messages per URL.
+    Each model URL triggers creation of a Model object, using preceding
+    code and dataset URLs if present.
 
     Args:
         file_path (str): Absolute path to the file containing URLs.
 
     Returns:
-        int: 0 if all URLs are classified successfully, 1 if any error occurs.
+        int: 0 if all URLs are processed successfully, 1 if any error occurs.
     """
     print(f"Processing file: {file_path}...")
     try:
@@ -125,14 +134,40 @@ def run_catalogue(file_path: str) -> int:
         print(f"Error reading file '{file_path}': {e}")
         return 1
 
+    @dataclass
+    class URLBundle:
+        model: Optional[str] = None
+        code: Optional[str] = None
+        dataset: Optional[str] = None
+
+        def clear(self):
+            self.model = None
+            self.code = None
+            self.dataset = None
+
+    url_bundle = URLBundle()
+    catalogue = ModelCatalogue()
+
     for url in urls:
         try:
             category = classify_url(url)
-            print(f"URL: {url} -> Category: {category}")
         except ValueError as e:
             print(f"URL: {url} -> Error: {e}")
-            return 0
-    return 1
+            return 1
+
+        if category == "model":
+            # Add the model to the catalogue with any stored URLS
+            url_bundle.model = url
+            catalogue.addModel(Model(
+                url_bundle.model,
+                url_bundle.code,
+                url_bundle.dataset
+            ))
+            url_bundle.clear()
+        else:
+            setattr(url_bundle, category, url)
+    print(catalogue.generateReport())
+    return 0
 
 
 def main(arg: str) -> int:
@@ -146,7 +181,7 @@ def main(arg: str) -> int:
       - otherwise, prints usage information and returns error
 
     Args:
-        arg (str): Command-line argument specifying the operation mode or file path.
+        arg (str): Command-line argument specifying the operation mode or file.
 
     Returns:
         int: Exit code (0 for success, 1 for error).
