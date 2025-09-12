@@ -52,45 +52,113 @@ def classify_url(url: str) -> str:
         raise ValueError(f"Unknown or unsupported URL domain: '{netloc}'")
 
 
-def main(arg: str) -> int:
+def read_urls_from_file(file_path: str) -> list[str]:
     """
-    Application Entry-Point
+    Reads URLs from an ASCII-encoded, newline delimited file.
 
     Args:
-        arg (str): one of "install", "test", or the absolute path of an ASCII
-                   encoded, newline delimited file containing URLs
-        
-    Returns:
-        int: 0 on successful termination, 1 on errored termination
-    """
-    # ./run.py install
-    if arg == "install":
-        print("Installing dependencies to virtual environment...")
-        if platform.system() == "Windows":
-            result = subprocess.run(["cmd.exe", "/c", "setup.bat"])
-        else:
-            result = subprocess.run(["bash", "setup.sh"])
-        return result.returncode
-    
-    # ./run.py test
-    elif arg == "test":
-        print("Running Pytest suite...")
-        return 0
+        file_path (str): the absolute path to the URL file
 
-    # ./run.py $URL_FILE
-    elif Path(arg).is_absolute():
-        print(f"Processing file: {arg}...")
+    Returns:
+        list[str]: a list of URL strings read from the file
+
+    Raises:
+        FileNotFoundError: if the file does not exist
+        IOError: if there is an error reading the file
+        UnicodeDecodeError: if the file is not ASCII encoded
+    """
+    urls = []
+    with open(file_path, "r", encoding="ascii") as file:
+        for line in file:
+            url = line.strip()
+            if url: # skip empty lines
+                urls.append(url)
+    return urls
+
+
+def run_install() -> int:
+    """
+    Run installation script to setup dependencies in virtual environment
+
+    Uses platform-specific commands:
+        - Windows: runs 'setup.bat' via cmd.exe
+        - Unix-like Systems: runs 'setup.sh' via bash
+
+    Returns:
+        int: the return code from the subprocess command
+    """
+    print("Installing dependencies to virtual environment...")
+    cmd = ["cmd.exe", "/c", "setup.bat"] if platform.system() == "Windows" else ["bash", "setup.sh"]
+    result = subprocess.run(cmd)
+    return result.returncode
+
+
+def run_test() -> int:
+    """
+    Run the test suite.
+
+    Returns:
+        int: exit code incicating success (0) or failure (non-zero)
+    """
+    print("Running Pytest suite...")
+    # Call pytest or your test runner here
+    return 0
+
+
+def run_catalogue(file_path: str) -> int:
+    """
+    Process an ASCII-encoded, newline-delimited file containing URLs.
+
+    Reads each URL from the file and classifies it using `classify_url`.
+    Prints the classification results or error messages per URL.
+
+    Args:
+        file_path (str): Absolute path to the file containing URLs.
+
+    Returns:
+        int: 0 if all URLs are classified successfully, 1 if any error occurs.
+    """
+    print(f"Processing file: {file_path}...")
+    try:
+        urls = read_urls_from_file(file_path)
+    except (FileNotFoundError, IOError, UnicodeDecodeError) as e:
+        print(f"Error reading file '{file_path}': {e}")
+        return 1
+
+    for url in urls:
         try:
             category = classify_url(url)
             print(f"URL: {url} -> Category: {category}")
         except ValueError as e:
             print(f"URL: {url} -> Error: {e}")
-        return 0
+            return 0
+    return 1
 
-    # ./run.py $UNDEFINED
-    else:
-        print_usage()
-        return 1
+
+def main(arg: str) -> int:
+    """
+    Entry point for the application.
+
+    Determines the action to take based on the provided argument:
+      - "install": run installation
+      - "test": run test suite
+      - absolute file path: process the file containing URLs
+      - otherwise, prints usage information and returns error
+
+    Args:
+        arg (str): Command-line argument specifying the operation mode or file path.
+
+    Returns:
+        int: Exit code (0 for success, 1 for error).
+    """
+    if arg == "install":
+        return run_install()
+    if arg == "test":
+        return run_test()
+    if Path(arg).is_absolute():
+        return run_catalogue(arg)
+    print_usage()
+    return 1
 
 
 if __name__ == "__main__":
