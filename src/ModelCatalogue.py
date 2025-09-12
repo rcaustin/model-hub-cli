@@ -11,9 +11,8 @@ class ModelCatalogue:
         self.models: list[Model] = []
         self.metrics: list[Metric] = []
 
-    def fetchModels(self):
-        # Implement logic to fetch and populate self.models
-        pass
+    def getModel(self, model: Model):
+        self.models.append(model)
 
     def evaluateModels(self):
         # Evaluate each model with each metric and store results
