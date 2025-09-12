@@ -43,7 +43,7 @@ class Model:
 
     def getEvalsLatency(self) -> dict[str, float]:
         return self.evaluationsLatency
-    
+
     def getCategory(self) -> str:
         categories = []
         if self.modelLink:
@@ -53,4 +53,3 @@ class Model:
         if self.codeLink:
             categories.append("CODE")
         return f"[{', '.join(categories)}]"
-
