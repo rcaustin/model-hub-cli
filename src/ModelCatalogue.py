@@ -23,12 +23,14 @@ class ModelCatalogue:
                 model.evaluate(metric)
 
     def generateReport(self):
+        # Generate a consolidated NDJSON report for all models.
         ndjson_report = []
         for model in self.models:
             ndjson_report.append(self.getModelNDJSON(model))
         return "\n-----\n".join(ndjson_report)
 
     def getModelNDJSON(self, model: Model) -> str:
+        # Create a dictionary with the required fields for NDJSON output.
         ndjson_obj = {
             "name": model.name,
             "category": model.getCategory(),
