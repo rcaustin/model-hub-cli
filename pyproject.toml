@@ -1,0 +1,13 @@
+#Example from ChatGPT. Might need to edit for our purposes.
+
+[tool.pytest.ini_options]
+# Directories where tests live
+testpaths = ["tests"]
+# Files to recognize as test files
+python_files = "test_*.py"
+
+[tool.flake8]
+# Maximum line length for code
+max-line-length = 88
+# Directories/files to exclude from linting
+exclude = .venv,__pycache__,build,dist
