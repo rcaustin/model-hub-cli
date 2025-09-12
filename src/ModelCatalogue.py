@@ -11,7 +11,7 @@ class ModelCatalogue:
         self.models: list[Model] = []
         self.metrics: list[Metric] = []
 
-    def getModel(self, model: Model):
+    def addModel(self, model: Model):
         self.models.append(model)
 
     def evaluateModels(self):
