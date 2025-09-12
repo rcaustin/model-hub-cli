@@ -76,50 +76,89 @@ def read_urls_from_file(file_path: str) -> list[str]:
     return urls
 
 
-def main(arg: str) -> int:
+def run_install() -> int:
     """
-    Application Entry-Point
+    Run installation script to setup dependencies in virtual environment
+
+    Uses platform-specific commands:
+        - Windows: runs 'setup.bat' via cmd.exe
+        - Unix-like Systems: runs 'setup.sh' via bash
+
+    Returns:
+        int: the return code from the subprocess command
+    """
+    print("Installing dependencies to virtual environment...")
+    cmd = ["cmd.exe", "/c", "setup.bat"] if platform.system() == "Windows" else ["bash", "setup.sh"]
+    result = subprocess.run(cmd)
+    return result.returncode
+
+
+def run_test() -> int:
+    """
+    Run the test suite.
+
+    Returns:
+        int: exit code incicating success (0) or failure (non-zero)
+    """
+    print("Running Pytest suite...")
+    # Call pytest or your test runner here
+    return 0
+
+
+def run_catalogue(file_path: str) -> int:
+    """
+    Process an ASCII-encoded, newline-delimited file containing URLs.
+
+    Reads each URL from the file and classifies it using `classify_url`.
+    Prints the classification results or error messages per URL.
 
     Args:
-        arg (str): one of "install", "test", or the absolute path of an ASCII
-                   encoded, newline delimited file containing URLs
-        
+        file_path (str): Absolute path to the file containing URLs.
+
     Returns:
-        int: 0 on successful termination, 1 on errored termination
+        int: 0 if all URLs are classified successfully, 1 if any error occurs.
+    """
+    print(f"Processing file: {file_path}...")
+    try:
+        urls = read_urls_from_file(file_path)
+    except (FileNotFoundError, IOError, UnicodeDecodeError) as e:
+        print(f"Error reading file '{file_path}': {e}")
+        return 1
+
+    for url in urls:
+        try:
+            category = classify_url(url)
+            print(f"URL: {url} -> Category: {category}")
+        except ValueError as e:
+            print(f"URL: {url} -> Error: {e}")
+            return 0
+    return 1
+
+
+def main(arg: str) -> int:
+    """
+    Entry point for the application.
+
+    Determines the action to take based on the provided argument:
+      - "install": run installation
+      - "test": run test suite
+      - absolute file path: process the file containing URLs
+      - otherwise, prints usage information and returns error
+
+    Args:
+        arg (str): Command-line argument specifying the operation mode or file path.
+
+    Returns:
+        int: Exit code (0 for success, 1 for error).
     """
     if arg == "install":
-        print("Installing dependencies to virtual environment...")
-        cmd = ["cmd.exe", "/c", "setup.bat"] if platform.system() == "Windows" else ["bash", "setup.sh"]
-        result = subprocess.run(cmd)
-        return result.returncode
-    
+        return run_install()
     if arg == "test":
-        print("Running Pytest suite...")
-        # Call the test runner here
-        return 0
-
-    # ./run.py $URL_FILE
+        return run_test()
     if Path(arg).is_absolute():
-        print(f"Processing file: {arg}...")
-        try:
-            urls = read_urls_from_file(arg)
-        except (FileNotFoundError, IOError, UnicodeDecodeError) as e:
-            print(f"Error reading file '{arg}': {e}")
-            return 1
-
-        for url in urls:
-            try:
-                category = classify_url(url)
-                print(f"URL: {url} -> Category: {category}")
-            except ValueError as e:
-                print(f"URL '{url}' -> Error: {e}")
-                return 1
-        return 0
-
-    # ./run.py $NOT_ABSOLUTE_PATH
-    else:
-        print_usage()
-        return 1
+        return run_catalogue(arg)
+    print_usage()
+    return 1
 
 
 if __name__ == "__main__":
