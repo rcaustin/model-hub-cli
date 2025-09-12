@@ -1,18 +1,18 @@
-from typing import Union
-from Metric import Metric
 import time
+from typing import Union
+
+from src.Metric import Metric
 
 
 class Model:
 
     def __init__(
         self,
-        name: str,
         modelLink: str,
-        codeLink: str,
-        datasetLink: str
+        codeLink: str | None = None,
+        datasetLink: str | None = None
     ):
-        self.name = name
+        self.name = None
         self.modelLink = modelLink
         self.codeLink = codeLink
         self.datasetLink = datasetLink
@@ -43,7 +43,7 @@ class Model:
 
     def getEvalsLatency(self) -> dict[str, float]:
         return self.evaluationsLatency
-    
+
     def getCategory(self) -> str:
         categories = []
         if self.modelLink:
@@ -53,4 +53,3 @@ class Model:
         if self.codeLink:
             categories.append("CODE")
         return f"[{', '.join(categories)}]"
-
