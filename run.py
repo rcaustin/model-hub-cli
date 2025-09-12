@@ -52,6 +52,30 @@ def classify_url(url: str) -> str:
         raise ValueError(f"Unknown or unsupported URL domain: '{netloc}'")
 
 
+def read_urls_from_file(file_path: str) -> list[str]:
+    """
+    Reads URLs from an ASCII-encoded, newline delimited file.
+
+    Args:
+        file_path (str): the absolute path to the URL file
+
+    Returns:
+        list[str]: a list of URL strings read from the file
+
+    Raises:
+        FileNotFoundError: if the file does not exist
+        IOError: if there is an error reading the file
+        UnicodeDecodeError: if the file is not ASCII encoded
+    """
+    urls = []
+    with open(file_path, "r", encoding="ascii") as file:
+        for line in file:
+            url = line.strip()
+            if url: # skip empty lines
+                urls.append(url)
+    return urls
+
+
 def main(arg: str) -> int:
     """
     Application Entry-Point
@@ -63,31 +87,36 @@ def main(arg: str) -> int:
     Returns:
         int: 0 on successful termination, 1 on errored termination
     """
-    # ./run.py install
     if arg == "install":
         print("Installing dependencies to virtual environment...")
-        if platform.system() == "Windows":
-            result = subprocess.run(["cmd.exe", "/c", "setup.bat"])
-        else:
-            result = subprocess.run(["bash", "setup.sh"])
+        cmd = ["cmd.exe", "/c", "setup.bat"] if platform.system() == "Windows" else ["bash", "setup.sh"]
+        result = subprocess.run(cmd)
         return result.returncode
     
-    # ./run.py test
-    elif arg == "test":
+    if arg == "test":
         print("Running Pytest suite...")
+        # Call the test runner here
         return 0
 
     # ./run.py $URL_FILE
-    elif Path(arg).is_absolute():
+    if Path(arg).is_absolute():
         print(f"Processing file: {arg}...")
         try:
-            category = classify_url(url)
-            print(f"URL: {url} -> Category: {category}")
-        except ValueError as e:
-            print(f"URL: {url} -> Error: {e}")
+            urls = read_urls_from_file(arg)
+        except (FileNotFoundError, IOError, UnicodeDecodeError) as e:
+            print(f"Error reading file '{arg}': {e}")
+            return 1
+
+        for url in urls:
+            try:
+                category = classify_url(url)
+                print(f"URL: {url} -> Category: {category}")
+            except ValueError as e:
+                print(f"URL '{url}' -> Error: {e}")
+                return 1
         return 0
 
-    # ./run.py $UNDEFINED
+    # ./run.py $NOT_ABSOLUTE_PATH
     else:
         print_usage()
         return 1
