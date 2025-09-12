@@ -10,4 +10,4 @@ python_files = "test_*.py"
 # Maximum line length for code
 max-line-length = 88
 # Directories/files to exclude from linting
-exclude = .venv,__pycache__,build,dist
+exclude = [".venv", "__pycache__", "build", "dist"]
