@@ -110,8 +110,18 @@ def run_test() -> int:
         int: exit code incicating success (0) or failure (non-zero)
     """
     print("Running Pytest suite...")
-    # Call pytest or your test runner here
-    return 0
+    try:
+        cmd = (
+            ["cmd.exe", "/c", "pytest -v tests/"]
+            if platform.system() == "Windows"
+            else ["pytest", "-v", "tests/"]
+        )
+        result = subprocess.run(cmd, check=False)
+        return result.returncode
+    except FileNotFoundError:
+        print("Error: pytest is not installed.")
+        print("Install dependencies first by running: run.py install")
+        return 1
 
 
 def run_catalogue(file_path: str) -> int:

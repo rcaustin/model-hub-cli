@@ -3,6 +3,8 @@
 [tool.pytest.ini_options]
 # Directories where tests live
 testpaths = ["tests"]
+# Verbose output
+addopts = "-v"
 # Files to recognize as test files
 python_files = "test_*.py"
 
@@ -11,3 +13,5 @@ python_files = "test_*.py"
 max-line-length = 88
 # Directories/files to exclude from linting
 exclude = [".venv", "__pycache__", "build", "dist"]
+# Ignore unused import warning in test_basic.py
+per-file-ignores = "tests/test_basic.py:F401"
