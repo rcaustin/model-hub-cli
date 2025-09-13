@@ -102,8 +102,8 @@ def run_catalogue(file_path: str) -> int:
 
     catalogue = ModelCatalogue()
 
-    for b in url_bundles:
-        catalogue.addModel(Model(b.model, b.code, b.dataset))
+    for url_bundle in url_bundles:
+        catalogue.addModel(Model(url_bundle))
 
     print(catalogue.generateReport())
     return 0
