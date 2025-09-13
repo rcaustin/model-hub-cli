@@ -2,13 +2,11 @@
 import platform
 import subprocess
 import sys
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
-from urllib.parse import urlparse
 
 from src.Model import Model
 from src.ModelCatalogue import ModelCatalogue
+from src.util.URLBundler import bundle
 
 
 def print_usage() -> None:
@@ -19,42 +17,6 @@ Arguments:
                    "install"              Run install logic
                    "test"                 Run test logic
                    <absolute file path>   Process the given file""")
-
-
-def classify_url(url: str) -> str:
-    """
-    Classify a URL as one of [model, dataset, code] according to its location.
-
-    Args:
-        url (str): the URL to be classified
-
-    Returns:
-        str: one of ["model", "dataset", "code"]
-
-    Raises:
-        ValueError: if the URL is unrecognized, invalid, or malformed.
-    """
-    if not isinstance(url, str) or not url.strip():
-        raise ValueError("Input mus be a non-empty URL string.")
-
-    parsed = urlparse(url.strip())
-    netloc = parsed.netloc
-    path = parsed.path
-
-    if not netloc:
-        raise ValueError(f"Malformed URL: '{url}'")
-
-    if netloc == "huggingface.co":
-        if path.startswith("/datasets/"):
-            return "dataset"
-        elif path.startswith("/"):
-            return "model"
-        else:
-            raise ValueError(f"Unknown Hugging Face URL: '{url}'")
-    elif netloc == "github.com":
-        return "code"
-    else:
-        raise ValueError(f"Unknown or unsupported URL domain: '{netloc}'")
 
 
 def read_urls_from_file(file_path: str) -> list[str]:
@@ -116,10 +78,8 @@ def run_test() -> int:
 
 def run_catalogue(file_path: str) -> int:
     """
-    Process an ASCII-encoded, newline-delimited file containing URLs.
-
-    Each model URL triggers creation of a Model object, using preceding
-    code and dataset URLs if present.
+    Process an ASCII-encoded, newline-delimited file containing URLs and
+    build a model catalogue. Finish by printing the generated catalogue report.
 
     Args:
         file_path (str): Absolute path to the file containing URLs.
@@ -134,38 +94,17 @@ def run_catalogue(file_path: str) -> int:
         print(f"Error reading file '{file_path}': {e}")
         return 1
 
-    @dataclass
-    class URLBundle:
-        model: Optional[str] = None
-        code: Optional[str] = None
-        dataset: Optional[str] = None
+    try:
+        url_bundles = bundle(urls)
+    except ValueError as e:
+        print(f"Error while bundling URLs: {e}")
+        return 1
 
-        def clear(self):
-            self.model = None
-            self.code = None
-            self.dataset = None
-
-    url_bundle = URLBundle()
     catalogue = ModelCatalogue()
 
-    for url in urls:
-        try:
-            category = classify_url(url)
-        except ValueError as e:
-            print(f"URL: {url} -> Error: {e}")
-            return 1
+    for b in url_bundles:
+        catalogue.addModel(Model(b.model, b.code, b.dataset))
 
-        if category == "model":
-            # Add the model to the catalogue with any stored URLS
-            url_bundle.model = url
-            catalogue.addModel(Model(
-                url_bundle.model,
-                url_bundle.code,
-                url_bundle.dataset
-            ))
-            url_bundle.clear()
-        else:
-            setattr(url_bundle, category, url)
     print(catalogue.generateReport())
     return 0
 
