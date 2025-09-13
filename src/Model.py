@@ -2,20 +2,19 @@ import time
 from typing import Union
 
 from src.Metric import Metric
+from src.util.URLBundler import URLBundle
 
 
 class Model:
 
     def __init__(
         self,
-        modelLink: str,
-        codeLink: str | None = None,
-        datasetLink: str | None = None
+        urls: URLBundle
     ):
         self.name = None
-        self.modelLink = modelLink
-        self.codeLink = codeLink
-        self.datasetLink = datasetLink
+        self.modelLink = urls.model
+        self.codeLink = urls.code
+        self.datasetLink = urls.dataset
 
         """
         evaluations maps metric names to their scores.
