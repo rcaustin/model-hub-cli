@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import os
 import platform
 import subprocess
 import sys
@@ -66,18 +67,18 @@ def run_install() -> int:
 
 def run_test() -> int:
     """
-    Run the test suite.
+    Run the test suite using pytest invoked from the python interpreter in
+    the virtual environment.
 
     Returns:
         int: exit code incicating success (0) or failure (non-zero)
     """
     print("Running Pytest suite...")
     try:
-        cmd = (
-            ["cmd.exe", "/c", "pytest -v tests/"]
-            if platform.system() == "Windows"
-            else ["pytest", "-v", "tests/"]
-        )
+        venv_python = os.path.join(".venv", "bin", "python3")
+        if platform.system() == "Windows":
+            venv_python = os.path.join(".venv.", "Scripts", "python.exe")
+        cmd = [venv_python, "-m", "pytest", "-v", "tests/"]
         result = subprocess.run(cmd, check=False)
         return result.returncode
     except FileNotFoundError:
