@@ -5,9 +5,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from src.Model import Model
-from src.ModelCatalogue import ModelCatalogue
-from src.util.URLBundler import bundle
+from src.commands.catalogue_runner import run_catalogue
 
 
 def print_usage() -> None:
@@ -18,30 +16,6 @@ Arguments:
                    "install"              Run install logic
                    "test"                 Run test logic
                    <absolute file path>   Process the given file""")
-
-
-def read_urls_from_file(file_path: str) -> list[str]:
-    """
-    Reads URLs from an ASCII-encoded, newline delimited file.
-
-    Args:
-        file_path (str): the absolute path to the URL file
-
-    Returns:
-        list[str]: a list of URL strings read from the file
-
-    Raises:
-        FileNotFoundError: if the file does not exist
-        IOError: if there is an error reading the file
-        UnicodeDecodeError: if the file is not ASCII encoded
-    """
-    urls = []
-    with open(file_path, "r", encoding="ascii") as file:
-        for line in file:
-            url = line.strip()
-            if url:  # skip empty lines
-                urls.append(url)
-    return urls
 
 
 def run_install() -> int:
@@ -55,7 +29,6 @@ def run_install() -> int:
     Returns:
         int: the return code from the subprocess command
     """
-    print("Installing dependencies to virtual environment...")
     cmd = (
         ["cmd.exe", "/c", "setup.bat"]
         if platform.system() == "Windows"
@@ -73,7 +46,6 @@ def run_test() -> int:
     Returns:
         int: exit code incicating success (0) or failure (non-zero)
     """
-    print("Running Pytest suite...")
     try:
         venv_python = os.path.join(".venv", "bin", "python3")
         if platform.system() == "Windows":
@@ -85,39 +57,6 @@ def run_test() -> int:
         print("Error: pytest is not installed.")
         print("Install dependencies first by running: run.py install")
         return 1
-
-
-def run_catalogue(file_path: str) -> int:
-    """
-    Process an ASCII-encoded, newline-delimited file containing URLs and
-    build a model catalogue. Finish by printing the generated catalogue report.
-
-    Args:
-        file_path (str): Absolute path to the file containing URLs.
-
-    Returns:
-        int: 0 if all URLs are processed successfully, 1 if any error occurs.
-    """
-    print(f"Processing file: {file_path}...")
-    try:
-        urls = read_urls_from_file(file_path)
-    except (FileNotFoundError, IOError, UnicodeDecodeError) as e:
-        print(f"Error reading file '{file_path}': {e}")
-        return 1
-
-    try:
-        url_bundles = bundle(urls)
-    except ValueError as e:
-        print(f"Error while bundling URLs: {e}")
-        return 1
-
-    catalogue = ModelCatalogue()
-
-    for url_bundle in url_bundles:
-        catalogue.addModel(Model(url_bundle))
-
-    print(catalogue.generateReport())
-    return 0
 
 
 def main(arg: str) -> int:
