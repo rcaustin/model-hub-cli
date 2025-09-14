@@ -8,7 +8,7 @@ import pytest
 def sample_urls():
     """Sample URLs for testing."""
     return [
-        "https://huggingface.co/microsoft/DialoGPT-medium",
         "https://huggingface.co/datasets/squad",
-        "https://github.com/huggingface/transformers"
+        "https://github.com/huggingface/transformers",
+        "https://huggingface.co/microsoft/DialoGPT-medium"
     ]
