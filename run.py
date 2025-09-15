@@ -5,8 +5,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-from src.commands.catalogue_runner import run_catalogue
-
 
 def print_usage() -> None:
     print("""Usage: python main.py [OPTIONS] ARG
@@ -80,6 +78,12 @@ def main(arg: str) -> int:
     if arg == "test":
         return run_test()
     if Path(arg).is_absolute():
+        try:
+            from src.commands.catalogue_runner import run_catalogue
+        except ModuleNotFoundError:
+            print("Error: Required dependencies are not installed.")
+            print("Install dependencies first by running: run.py install")
+            return 1
         return run_catalogue(arg)
     print_usage()
     return 1
