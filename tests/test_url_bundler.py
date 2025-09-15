@@ -51,9 +51,12 @@ def test_bundle_with_sample_urls(sample_urls):
     assert len(result) == 1
     bundle_result = result[0]
 
-    assert bundle_result.model == "https://huggingface.co/microsoft/DialoGPT-medium"
-    assert bundle_result.dataset == "https://huggingface.co/datasets/squad"
-    assert bundle_result.code == "https://github.com/huggingface/transformers"
+    assert bundle_result.model == \
+        "https://huggingface.co/microsoft/DialoGPT-medium"
+    assert bundle_result.dataset == \
+        "https://huggingface.co/datasets/squad"
+    assert bundle_result.code == \
+        "https://github.com/huggingface/transformers"
 
 
 # -----------------------------------
