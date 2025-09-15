@@ -1,5 +1,7 @@
 import json
 
+from loguru import logger
+
 from src.Metric import Metric
 from src.Model import Model
 
@@ -16,6 +18,17 @@ class ModelCatalogue:
     def addModel(self, model: Model):
         self.models.append(model)
 
+        logger.info(
+            """Model added to the catalogue:
+            Model URL = '{}',
+            Dataset URL = '{}',
+            Code URL = '{}'
+            """,
+            model.modelURL,
+            model.datasetURL,
+            model.codeURL
+        )
+
     def evaluateModels(self):
         # Evaluate each model with each metric and store results
         for model in self.models:
@@ -27,6 +40,9 @@ class ModelCatalogue:
         ndjson_report = []
         for model in self.models:
             ndjson_report.append(self.getModelNDJSON(model))
+
+        logger.info("Report generated for {} models.", len(self.models))
+
         return "\n-----\n".join(ndjson_report)
 
     def getModelNDJSON(self, model: Model) -> str:

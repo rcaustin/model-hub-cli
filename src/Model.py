@@ -12,9 +12,9 @@ class Model:
         urls: URLBundle
     ):
         self.name = None
-        self.modelLink = urls.model
-        self.codeLink = urls.code
-        self.datasetLink = urls.dataset
+        self.modelLink: str = urls.model
+        self.codeLink: str | None = urls.code
+        self.datasetLink: str | None = urls.dataset
 
         """
         evaluations maps metric names to their scores.
