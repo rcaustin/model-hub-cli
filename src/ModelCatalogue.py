@@ -27,9 +27,9 @@ class ModelCatalogue:
             Dataset URL = '{}',
             Code URL = '{}'
             """,
-            model.modelURL,
-            model.datasetURL,
-            model.codeURL
+            model.modelLink,
+            model.datasetLink,
+            model.codeLink
         )
 
     def evaluateModels(self):
