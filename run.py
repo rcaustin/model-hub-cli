@@ -4,6 +4,13 @@ import platform
 import subprocess
 import sys
 from pathlib import Path
+from typing import Callable
+
+# Constants
+SETUP_SCRIPT_WINDOWS = ["cmd.exe", "/c", "setup.bat"]
+SETUP_SCRIPT_UNIX = ["bash", "setup.sh"]
+VENV_PYTHON_WIN = os.path.join(".venv", "Scripts", "python.exe")
+VENV_PYTHON_UNIX = os.path.join(".venv", "bin", "python3")
 
 
 def print_usage() -> None:
@@ -16,81 +23,58 @@ Arguments:
                    <absolute file path>   Process the given file""")
 
 
+def get_venv_python() -> str:
+    """Return the path to the Python interpreter in the virtual environment."""
+    return VENV_PYTHON_WIN if platform.system() == "Windows" else VENV_PYTHON_UNIX
+
+
 def run_install() -> int:
-    """
-    Run installation script to setup dependencies in virtual environment
-
-    Uses platform-specific commands:
-        - Windows: runs 'setup.bat' via cmd.exe
-        - Unix-like Systems: runs 'setup.sh' via bash
-
-    Returns:
-        int: the return code from the subprocess command
-    """
-    cmd = (
-        ["cmd.exe", "/c", "setup.bat"]
-        if platform.system() == "Windows"
-        else ["bash", "setup.sh"]
-    )
-    result = subprocess.run(cmd)
-    return result.returncode
+    """Run the platform-specific install script."""
+    cmd = SETUP_SCRIPT_WINDOWS if platform.system() == "Windows" else SETUP_SCRIPT_UNIX
+    return subprocess.run(cmd).returncode
 
 
 def run_test() -> int:
-    """
-    Run the test suite using pytest invoked from the python interpreter in
-    the virtual environment.
-
-    Returns:
-        int: exit code incicating success (0) or failure (non-zero)
-    """
+    """Run tests using pytest from the virtual environment."""
     try:
-        venv_python = os.path.join(".venv", "bin", "python3")
-        if platform.system() == "Windows":
-            venv_python = os.path.join(".venv.", "Scripts", "python.exe")
-        cmd = [venv_python, "-m", "pytest", "-v", "tests/"]
-        result = subprocess.run(cmd, check=False)
-        return result.returncode
+        cmd = [get_venv_python(), "-m", "pytest", "-v", "tests/"]
+        return subprocess.run(cmd, check=False).returncode
     except FileNotFoundError:
         print("Error: pytest is not installed.")
-        print("Install dependencies first by running: run.py install")
+        print("Install dependencies first by running: python main.py install")
+        return 1
+
+
+def run_program(file_path: str) -> int:
+    """Run the main application logic with the given file path."""
+    cmd = [get_venv_python(), "-m", "src.commands.catalogue_runner", file_path]
+    try:
+        return subprocess.run(cmd, check=False).returncode
+    except FileNotFoundError:
+        print("Error: Required dependencies are not installed.")
+        print("Install dependencies first by running: python main.py install")
         return 1
 
 
 def main(arg: str) -> int:
-    """
-    Entry point for the application.
+    """Main entry point for the application."""
+    actions: dict[str, Callable[[], int]] = {
+        "install": run_install,
+        "test": run_test,
+    }
 
-    Determines the action to take based on the provided argument:
-      - "install": run installation
-      - "test": run test suite
-      - absolute file path: process the file containing URLs
-      - otherwise, prints usage information and returns error
-
-    Args:
-        arg (str): Command-line argument specifying the operation mode or file.
-
-    Returns:
-        int: Exit code (0 for success, 1 for error).
-    """
-    if arg == "install":
-        return run_install()
-    if arg == "test":
-        return run_test()
-    if Path(arg).is_absolute():
-        try:
-            from src.commands.catalogue_runner import run_catalogue
-        except ModuleNotFoundError:
-            print("Error: Required dependencies are not installed.")
-            print("Install dependencies first by running: run.py install")
-            return 1
-        return run_catalogue(arg)
-    print_usage()
-    return 1
+    if arg in actions:
+        return actions[arg]()
+    elif Path(arg).is_absolute():
+        return run_program(arg)
+    else:
+        print_usage()
+        return 1
 
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
         print_usage()
         sys.exit(1)
-    main(sys.argv[1])
+
+    sys.exit(main(sys.argv[1]))
