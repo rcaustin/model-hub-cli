@@ -67,5 +67,6 @@ def run_catalogue(file_path: str) -> int:
     for url_bundle in url_bundles:
         catalogue.addModel(Model(url_bundle))
 
+    catalogue.evaluateModels()
     print(catalogue.generateReport())
     return 0
