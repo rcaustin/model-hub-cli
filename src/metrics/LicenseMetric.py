@@ -1,6 +1,7 @@
 import requests
+from loguru import logger
 
-from Metric import Metric
+from src.Metric import Metric
 
 
 class LicenseMetric(Metric):
@@ -34,7 +35,7 @@ class LicenseMetric(Metric):
         against the LGPL-2.1 license used by this project.
 
         This method currently focuses on the `codeLink`, checking its license (via
-        GitHub API if applicable), and comparing it against a predefined list of 
+        GitHub API if applicable), and comparing it against a predefined list of
         compatible and incompatible licenses with respect to LGPL-2.1.
 
         Returns a float score in the range [0.0, 1.0]:
@@ -50,11 +51,15 @@ class LicenseMetric(Metric):
         Returns:
             float: A compatibility score between 0.0 and 1.0.
         """
+        logger.info("Evaluating LicenseMetric...")
         if not codeLink:
+            logger.info("LicenseMetric: No Code URL -> 0.0")
             return 0.5  # No code provided: unknown
 
         license_id = self._get_spdx_license_from_github(codeLink)
-        return self.LICENSE_COMPATIBILITY.get(license_id, 0.5)  # Default: ambiguous
+        license_score = self.LICENSE_COMPATIBILITY.get(license_id, 0.5)
+        logger.info("LicenseMetric: {} -> {}", license_id, license_score)
+        return license_score
 
     def _get_spdx_license_from_github(self, repo_url: str) -> str:
         """
