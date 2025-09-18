@@ -1,31 +1,13 @@
-import pytest
 from unittest.mock import patch
-from dataclasses import dataclass
-from typing import Optional
+
+import pytest
 
 from src.metrics.LicenseMetric import LicenseMetric
-
-
-@dataclass
-class StubModelData:
-    modelLink: str
-    codeLink: Optional[str]
-    datasetLink: Optional[str]
 
 
 @pytest.fixture
 def metric():
     return LicenseMetric()
-
-
-@pytest.fixture
-def base_model():
-    """Base stub model with common fields (overridden in tests)."""
-    return StubModelData(
-        modelLink="https://huggingface.co/some/model",
-        codeLink=None,
-        datasetLink="https://huggingface.co/datasets/some/dataset"
-    )
 
 
 @patch("src.metrics.LicenseMetric.requests.get")
