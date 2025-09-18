@@ -1,11 +1,12 @@
 import time
-from typing import Union
+from typing import Union, Optional
 
+from src.Interfaces import ModelData
 from src.Metric import Metric
 from src.util.URLBundler import URLBundle
 
 
-class Model:
+class Model(ModelData):
 
     def __init__(
         self,
@@ -13,8 +14,8 @@ class Model:
     ):
         self.name = None
         self.modelLink: str = urls.model
-        self.codeLink: str | None = urls.code
-        self.datasetLink: str | None = urls.dataset
+        self.codeLink: Optional[str] = urls.code
+        self.datasetLink: Optional[str] = urls.dataset
 
         """
         evaluations maps metric names to their scores.
@@ -28,7 +29,7 @@ class Model:
 
         # Evaluate the given metric and record its score and evaluation time.
         start: float = time.time()
-        score: Union[float, dict[str, float]] = metric.evaluate()
+        score: Union[float, dict[str, float]] = metric.evaluate(self)
         end: float = time.time()
         elapsed: float = end - start
 

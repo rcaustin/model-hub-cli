@@ -1,6 +1,7 @@
 import requests
 from loguru import logger
 
+from src.Interfaces import ModelData
 from src.Metric import Metric
 
 
@@ -24,12 +25,7 @@ class LicenseMetric(Metric):
         "Proprietary": 0.0
     }
 
-    def evaluate(
-        self,
-        modelLink: str = "",
-        datasetLink: str = "",
-        codeLink: str = ""
-    ) -> float:
+    def evaluate(self, model: ModelData) -> float:
         """
         Evaluate the license compatibility of the provided model, dataset, or code link
         against the LGPL-2.1 license used by this project.
@@ -52,11 +48,11 @@ class LicenseMetric(Metric):
             float: A compatibility score between 0.0 and 1.0.
         """
         logger.info("Evaluating LicenseMetric...")
-        if not codeLink:
+        if not model.codeLink:
             logger.info("LicenseMetric: No Code URL -> 0.0")
             return 0.5  # No code provided: unknown
 
-        license_id = self._get_spdx_license_from_github(codeLink)
+        license_id = self._get_spdx_license_from_github(model.codeLink)
         license_score = self.LICENSE_COMPATIBILITY.get(license_id, 0.5)
         logger.info("LicenseMetric: {} -> {}", license_id, license_score)
         return license_score
