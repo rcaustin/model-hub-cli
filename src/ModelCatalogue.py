@@ -37,6 +37,7 @@ class ModelCatalogue:
         for model in self.models:
             for metric in self.metrics:
                 model.evaluate(metric)
+            model.computeNetScore()
 
     def generateReport(self):
         # Generate a consolidated NDJSON report for all models.

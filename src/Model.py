@@ -53,3 +53,49 @@ class Model(ModelData):
         if self.codeLink:
             categories.append("CODE")
         return f"[{', '.join(categories)}]"
+
+    def computeNetScore(self) -> float:
+        """
+        Computes the NetScore using the formula:
+        NetScore = License * (
+            0.2 * Size +
+            0.3 * Ramp-Up +
+            0.1 * Bus Factor +
+            0.1 * Availability +
+            0.1 * Dataset Quality +
+            0.1 * Cody Quality +
+            0.1 * Performance Claims
+        )
+        """
+        def get_score(metric_name: str, default: float = 0.0) -> float:
+            score = self.evaluations.get(metric_name, default)
+            if isinstance(score, dict):
+                # THIS LINE DEPENDS ON HOW SizeMetric IS IMPLEMENTED
+                return score.get("average", default)
+            return score
+
+        license_score = get_score("LicenseMetric")
+        size_score = get_score("SizeMetric")
+        rampup_score = get_score("RampUpMetric")
+        bus_score = get_score("BusFactorMetric")
+        avail_score = get_score("AvailabilityMetric")
+        data_qual_score = get_score("DatasetQualityMetric")
+        code_qual_score = get_score("CodeQualityMetric")
+        perf_score = get_score("PerformanceClaimsMetric")
+
+        weighted_sum = (
+            0.2 * size_score +
+            0.3 * rampup_score +
+            0.1 * bus_score +
+            0.1 * avail_score +
+            0.1 * data_qual_score +
+            0.1 * code_qual_score +
+            0.1 * perf_score
+        )
+
+        net_score = license_score * weighted_sum
+
+        self.evaluations["NetScore"] = net_score
+        self.evaluationsLatency["NetScore"] = 0.0  # Derived metric; not timed
+
+        return net_score
