@@ -48,14 +48,54 @@ class LicenseMetric(Metric):
             float: A compatibility score between 0.0 and 1.0.
         """
         logger.info("Evaluating LicenseMetric...")
-        if not model.codeLink:
-            logger.info("LicenseMetric: No Code URL -> 0.0")
-            return 0.5  # No code provided: unknown
 
-        license_id = self._get_spdx_license_from_github(model.codeLink)
+        license_id = None
+
+        # Step 1: Try Hugging Face license from modelLink
+        if model.modelLink and "huggingface.co" in model.modelLink:
+            logger.debug("Trying Hugging Face license lookup...")
+            license_id = self._get_license_from_huggingface(model.modelLink)
+            if license_id:
+                logger.debug("Model License FOUND on huggingface.co")
+
+        # Step 2: Fallback to GitHub license from codeLink
+        if not license_id and model.codeLink and "github.com" in model.codeLink:
+            logger.debug("Falling back to GitHub license lookup...")
+            license_id = self._get_spdx_license_from_github(model.codeLink)
+            if license_id:
+                logger.debug("Code license FOUND on github.com")
+
+        # Step 3: Return score based on SPDX ID (or default to unknown)
         license_score = self.LICENSE_COMPATIBILITY.get(license_id, 0.5)
-        logger.info("LicenseMetric: {} -> {}", license_id, license_score)
+        logger.info("LicenseMetric: {} -> {}", license_id or "UNKNOWN", license_score)
         return license_score
+
+    def _get_license_from_huggingface(self, model_url: str) -> str:
+        """
+        Extracts license from Hugging Face model metadata using their public API.
+        Example URL: https://huggingface.co/facebook/bart-large -> 'facebook/bart-large'
+        """
+        try:
+            # Parse model ID from URL
+            parts = model_url.rstrip("/").split("/")
+            if len(parts) < 2:
+                return ""
+
+            namespace = parts[-2]
+            model_id = parts[-1]
+            repo_id = f"{namespace}/{model_id}"
+
+            api_url = f"https://huggingface.co/api/models/{repo_id}"
+            response = requests.get(api_url)
+
+            if response.status_code == 200:
+                data = response.json()
+                card_data = data.get("cardData", {})
+                return card_data.get("license", "")
+            return ""
+        except Exception as e:
+            logger.error("Failed to get license from Hugging Face: {}", str(e))
+            return ""
 
     def _get_spdx_license_from_github(self, repo_url: str) -> str:
         """
