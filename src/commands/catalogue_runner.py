@@ -70,3 +70,7 @@ def run_catalogue(file_path: str) -> int:
     catalogue.evaluateModels()
     print(catalogue.generateReport())
     return 0
+
+
+if __name__ == "__main__":
+    run_catalogue(sys.argv[1])
