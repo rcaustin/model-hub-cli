@@ -3,6 +3,7 @@ import json
 from loguru import logger
 
 from src.Metric import Metric
+from src.metrics.LicenseMetric import LicenseMetric
 from src.Model import Model
 
 
@@ -13,7 +14,9 @@ class ModelCatalogue:
 
     def __init__(self):
         self.models: list[Model] = []
-        self.metrics: list[Metric] = []
+        self.metrics: list[Metric] = [
+            LicenseMetric()
+        ]
 
     def addModel(self, model: Model):
         self.models.append(model)
@@ -24,9 +27,9 @@ class ModelCatalogue:
             Dataset URL = '{}',
             Code URL = '{}'
             """,
-            model.modelURL,
-            model.datasetURL,
-            model.codeURL
+            model.modelLink,
+            model.datasetLink,
+            model.codeLink
         )
 
     def evaluateModels(self):
