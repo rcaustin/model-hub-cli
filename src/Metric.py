@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Union
 
-from src.Model import ModelData
+from src.Interfaces import ModelData
 
 
 class Metric(ABC):
