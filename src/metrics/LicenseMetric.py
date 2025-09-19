@@ -59,7 +59,7 @@ class LicenseMetric(Metric):
             gh_meta = model.github_metadata
             if gh_meta:
                 license_info = gh_meta if isinstance(gh_meta, dict) else {}
-                license_id = license_info.get("license", {}).get("spdx_id")
+                license_id = license_info.get("license", "")
                 if license_id:
                     logger.debug("License found in GitHub metadata: {}", license_id)
 

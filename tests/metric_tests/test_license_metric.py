@@ -24,7 +24,7 @@ class TestLicenseMetric(BaseMetricTest):
     @pytest.fixture
     def github_model_gpl(self, base_model):
         model = base_model
-        model._github_metadata = {"license": {"spdx_id": "GPL-3.0"}}
+        model._github_metadata = {"license": "GPL-3.0"}
         return model
 
     # --- Tests ---
@@ -35,7 +35,7 @@ class TestLicenseMetric(BaseMetricTest):
         assert score == 1.0
 
     def test_hf_model_unknown(self, metric, hf_model_unknown):
-        logger.info("Testing HF model with unknown license...") 
+        logger.info("Testing HF model with unknown license...")
         score = metric.evaluate(hf_model_unknown)
         assert score == 0.5
 
