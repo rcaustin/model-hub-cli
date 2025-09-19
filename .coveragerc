@@ -1,0 +1,26 @@
+[run]
+# Omit test files and any setup scripts from coverage measurement
+omit =
+    tests/*
+    setup.py
+    run.py
+    *.bat
+    *.sh
+
+# Include source files from src/ only
+source = src
+
+[report]
+# Show missing lines in report for better feedback
+show_missing = True
+
+# Fail if coverage is below 80% (adjust as needed)
+fail_under = 80
+
+# Skip reporting on files with 100% coverage (optional)
+skip_covered = False
+
+[html]
+# Output directory for HTML reports
+directory = htmlcov
+
