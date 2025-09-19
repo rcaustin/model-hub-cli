@@ -35,7 +35,7 @@ class TestLicenseMetric(BaseMetricTest):
         assert score == 1.0
 
     def test_hf_model_unknown(self, metric, hf_model_unknown):
-        logger.info("Testing HF model with unknown license...") 
+        logger.info("Testing HF model with unknown license...")
         score = metric.evaluate(hf_model_unknown)
         assert score == 0.5
 
