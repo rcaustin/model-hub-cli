@@ -3,7 +3,7 @@ Pytest configuration and reusable fixtures for model-hub-cli tests.
 """
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Dict, Optional
 
 import pytest
 
@@ -14,6 +14,17 @@ class StubModelData:
     modelLink: str
     codeLink: Optional[str]
     datasetLink: Optional[str]
+
+    _hf_metadata: Optional[Dict[str, Any]] = None
+    _github_metadata: Optional[Dict[str, Any]] = None
+
+    @property
+    def hf_metadata(self) -> Optional[Dict[str, Any]]:
+        return self._hf_metadata
+
+    @property
+    def github_metadata(self) -> Optional[Dict[str, Any]]:
+        return self._github_metadata
 
 
 @pytest.fixture
