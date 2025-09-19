@@ -4,17 +4,12 @@ from src.Metric import Metric
 
 class BusFactorMetric(Metric):
     LARGE_COMPANIES = {
-        "google",
-        "facebook",
-        "microsoft",
-        "openai",
-        "huggingface",
-        "amazon",
-        "ibm",
-        "apple",
-        "tencent",
-        "baidu"
+        "google", "facebook", "microsoft", "openai", "huggingface",
+        "amazon", "ibm", "apple", "tencent", "baidu"
     }
+
+    MAX_TOP_CONTRIBS = 10
+    SCORE_PER_CONTRIB = 0.1
 
     def evaluate(self, model: ModelData) -> float:
         # Get author/org from HuggingFace metadata
@@ -42,13 +37,14 @@ class BusFactorMetric(Metric):
         if not contributors:
             return 0.0
 
-        # Sort contributors by contributions, descending
-        sorted_contribs = sorted(
+        # Top contributors sorted by contributions descending
+        top_contribs = sorted(
             contributors,
             key=lambda c: c.get("contributions", 0),
             reverse=True
-        )
-        top_contribs = sorted_contribs[:10]
+        )[:self.MAX_TOP_CONTRIBS]
+
+        # Zero contributors -> minimum score
         num_contribs = len(top_contribs)
         if num_contribs == 0:
             return 0.0
@@ -64,7 +60,7 @@ class BusFactorMetric(Metric):
             distribution_score = min_contrib / max_contrib  # between 0 and 1
 
         # Cap max score based on contributor count
-        max_score = min(num_contribs, 10) * 0.1
+        max_score = min(num_contribs, self.MAX_TOP_CONTRIBS) * self.SCORE_PER_CONTRIB
 
         # Final score: scale distribution_score by max_score
         score = distribution_score * max_score
