@@ -97,3 +97,13 @@ def test_bundle_code_without_model():
     urls = ["https://github.com/user/repo"]
     result = bundle(urls)
     assert result == []  # No model => no bundle
+
+
+def test_classify_url_missing_netloc():
+    # URL missing scheme, netloc will be empty
+    with pytest.raises(ValueError, match="Malformed URL"):
+        classify_url("huggingface.co/some-model")
+
+    # Path-only string
+    with pytest.raises(ValueError, match="Malformed URL"):
+        classify_url("/some/path")
