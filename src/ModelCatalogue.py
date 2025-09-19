@@ -3,6 +3,7 @@ import json
 from loguru import logger
 
 from src.Metric import Metric
+from src.metrics.BusFactorMetric import BusFactorMetric
 from src.metrics.LicenseMetric import LicenseMetric
 from src.Model import Model
 
@@ -15,7 +16,8 @@ class ModelCatalogue:
     def __init__(self):
         self.models: list[Model] = []
         self.metrics: list[Metric] = [
-            LicenseMetric()
+            LicenseMetric(),
+            BusFactorMetric()
         ]
 
     def addModel(self, model: Model):

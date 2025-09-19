@@ -122,13 +122,13 @@ class Model(ModelData):
     def _fetch_hf_metadata(self) -> Optional[Dict[str, Any]]:
         if not self.modelLink:
             logger.debug("No modelLink provided, skipping HuggingFace metadata fetch.")
-            return None
+            return {}
 
         try:
             parts = self.modelLink.rstrip("/").split("/")
             if len(parts) < 2:
                 logger.warning("Model link is malformed: {}", self.modelLink)
-                return None
+                return {}
 
             org, model_id = parts[-2], parts[-1]
             url = f"https://huggingface.co/api/models/{org}/{model_id}"
@@ -148,23 +148,23 @@ class Model(ModelData):
         except Exception as e:
             logger.exception("Exception while fetching HuggingFace metadata: {}", e)
 
-        return None
+        return {}
 
     def _fetch_github_metadata(self) -> Optional[Dict[str, Any]]:
         if not self.codeLink:
             logger.debug("No codeLink provided, skipping GitHub metadata fetch.")
-            return None
+            return {}
 
         try:
             parsed = urlparse(self.codeLink)
             if "github.com" not in parsed.netloc:
                 logger.debug(f"Code link is not a GitHub URL: {self.codeLink}")
-                return None
+                return {}
 
             path_parts = parsed.path.strip("/").split("/")
             if len(path_parts) < 2:
                 logger.warning(f"Invalid GitHub repository path: {parsed.path}")
-                return None
+                return {}
 
             owner, repo = path_parts[0], path_parts[1]
             base_url = f"https://api.github.com/repos/{owner}/{repo}"
@@ -205,8 +205,8 @@ class Model(ModelData):
                     license_resp.status_code
                 )
 
-            return metadata if metadata else None
+            return metadata if metadata else {}
 
         except Exception as e:
             logger.exception("Exception while fetching GitHub metadata: {}", e)
-            return None
+            return {}
