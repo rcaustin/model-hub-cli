@@ -1,11 +1,12 @@
 import time
-from typing import Union
+from typing import Union, Optional
 
+from src.Interfaces import ModelData
 from src.Metric import Metric
 from src.util.URLBundler import URLBundle
 
 
-class Model:
+class Model(ModelData):
 
     def __init__(
         self,
@@ -13,8 +14,8 @@ class Model:
     ):
         self.name = None
         self.modelLink: str = urls.model
-        self.codeLink: str | None = urls.code
-        self.datasetLink: str | None = urls.dataset
+        self.codeLink: Optional[str] = urls.code
+        self.datasetLink: Optional[str] = urls.dataset
 
         """
         evaluations maps metric names to their scores.
@@ -28,7 +29,7 @@ class Model:
 
         # Evaluate the given metric and record its score and evaluation time.
         start: float = time.time()
-        score: Union[float, dict[str, float]] = metric.evaluate()
+        score: Union[float, dict[str, float]] = metric.evaluate(self)
         end: float = time.time()
         elapsed: float = end - start
 
@@ -52,3 +53,49 @@ class Model:
         if self.codeLink:
             categories.append("CODE")
         return f"[{', '.join(categories)}]"
+
+    def computeNetScore(self) -> float:
+        """
+        Computes the NetScore using the formula:
+        NetScore = License * (
+            0.2 * Size +
+            0.3 * Ramp-Up +
+            0.1 * Bus Factor +
+            0.1 * Availability +
+            0.1 * Dataset Quality +
+            0.1 * Cody Quality +
+            0.1 * Performance Claims
+        )
+        """
+        def get_score(metric_name: str, default: float = 0.0) -> float:
+            score = self.evaluations.get(metric_name, default)
+            if isinstance(score, dict):
+                # THIS LINE DEPENDS ON HOW SizeMetric IS IMPLEMENTED
+                return score.get("average", default)
+            return score
+
+        license_score = get_score("LicenseMetric")
+        size_score = get_score("SizeMetric")
+        rampup_score = get_score("RampUpMetric")
+        bus_score = get_score("BusFactorMetric")
+        avail_score = get_score("AvailabilityMetric")
+        data_qual_score = get_score("DatasetQualityMetric")
+        code_qual_score = get_score("CodeQualityMetric")
+        perf_score = get_score("PerformanceClaimsMetric")
+
+        weighted_sum = (
+            0.2 * size_score +
+            0.3 * rampup_score +
+            0.1 * bus_score +
+            0.1 * avail_score +
+            0.1 * data_qual_score +
+            0.1 * code_qual_score +
+            0.1 * perf_score
+        )
+
+        net_score = license_score * weighted_sum
+
+        self.evaluations["NetScore"] = net_score
+        self.evaluationsLatency["NetScore"] = 0.0  # Derived metric; not timed
+
+        return net_score

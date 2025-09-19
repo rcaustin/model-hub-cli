@@ -1,13 +1,10 @@
 from abc import ABC, abstractmethod
 from typing import Union
 
+from src.Interfaces import ModelData
+
 
 class Metric(ABC):
     @abstractmethod
-    def evaluate(
-        self,
-        modelLink: str = "",
-        datasetLink: str = "",
-        codeLink: str = ""
-    ) -> Union[float, dict[str, float]]:
+    def evaluate(self, model: ModelData) -> Union[float, dict[str, float]]:
         pass
