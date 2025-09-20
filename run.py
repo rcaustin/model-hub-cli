@@ -37,8 +37,16 @@ def run_install() -> int:
 def run_test() -> int:
     """Run tests using pytest from the virtual environment."""
     try:
-        cmd = [get_venv_python(), "-m", "pytest", "-v", "tests/"]
-        return subprocess.run(cmd, check=False).returncode
+        # Run the unit tests
+        test_cmd = [
+            get_venv_python(), "-m", "coverage", "run", "-m", "pytest", "-v", "tests/"
+        ]
+        subprocess.run(test_cmd, check=False).returncode
+
+        # Generate the coverage report
+        report_cmd = [get_venv_python(), "-m", "coverage", "report"]
+        subprocess.run(report_cmd, check=False)
+        return 0
     except FileNotFoundError:
         print("Error: pytest is not installed.")
         print("Install dependencies first by running: python main.py install")
