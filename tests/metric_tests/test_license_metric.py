@@ -24,7 +24,7 @@ class TestLicenseMetric(BaseMetricTest):
     @pytest.fixture
     def github_model_gpl(self, base_model):
         model = base_model
-        model._github_metadata = {"license": {"spdx_id": "GPL-3.0"}}
+        model._github_metadata = {"license": "GPL-3.0"}
         return model
 
     # --- Tests ---
