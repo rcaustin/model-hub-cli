@@ -12,8 +12,6 @@ class Model(ModelData):
         self,
         urls: URLBundle
     ):
-        self.name = None
-
         self.modelLink: str = urls.model
         self.codeLink: Optional[str] = urls.code
         self.datasetLink: Optional[str] = urls.dataset
@@ -28,6 +26,10 @@ class Model(ModelData):
         """
         self.evaluations: dict[str, Union[float, dict[str, float]]] = {}
         self.evaluationsLatency: dict[str, float] = {}
+
+    @property
+    def name(self) -> str:
+        return self.hf_metadata.get("id", "").split("/")[1]
 
     @property
     def hf_metadata(self) -> Optional[Dict[str, Any]]:
