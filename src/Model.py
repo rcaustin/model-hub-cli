@@ -1,21 +1,24 @@
 import time
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from src.Interfaces import ModelData
 from src.Metric import Metric
 from src.util.metadata_fetchers import GitHubFetcher, HuggingFaceFetcher
-from src.util.URLBundler import URLBundle
+from src.util.url_utils import URLSet, classify_urls
 
 
 class Model(ModelData):
     def __init__(
         self,
-        urls: URLBundle
+        urls: List[str]
     ):
+        # Extract and Classify URLs
+        urls: URLSet = classify_urls(urls)
         self.modelLink: str = urls.model
         self.codeLink: Optional[str] = urls.code
         self.datasetLink: Optional[str] = urls.dataset
 
+        # Metadata Caching
         self._hf_metadata: Optional[Dict[str, Any]] = None
         self._github_metadata: Optional[Dict[str, Any]] = None
 
