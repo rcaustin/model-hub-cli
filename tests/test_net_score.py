@@ -4,12 +4,12 @@ Unit tests for computing NetScore in the Model class.
 
 import pytest
 from src.Model import Model
-from src.util.URLBundler import URLBundle
+from src.util.url_utils import URLSet
 
 
 def make_mock_model(evals: dict) -> Model:
     """Helper to create a Model with predefined evaluation scores."""
-    urls = URLBundle(
+    urls = URLSet(
         model="https://huggingface.co/models/foo",
         code="https://github.com/foo/bar",
         dataset="https://huggingface.co/datasets/bar"

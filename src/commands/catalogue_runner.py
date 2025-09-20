@@ -4,37 +4,11 @@ from loguru import logger
 
 from src.Model import Model
 from src.ModelCatalogue import ModelCatalogue
-from src.util.URLBundler import bundle
 
 # Configure loguru
 logger.remove()  # Remove default logger
 logger.add(sys.stderr, level="INFO")  # Console
 logger.add("logs/run.log", rotation="1 MB", level="DEBUG")  # Log file
-
-
-def read_urls_from_file(file_path: str) -> list[str]:
-    """
-    Reads URLs from an ASCII-encoded, newline delimited file.
-
-    Args:
-        file_path (str): the absolute path to the URL file
-
-    Returns:
-        list[str]: a list of URL strings read from the file
-
-    Raises:
-        FileNotFoundError: if the file does not exist
-        IOError: if there is an error reading the file
-        UnicodeDecodeError: if the file is not ASCII encoded
-    """
-    urls = []
-    with open(file_path, "r", encoding="ascii") as file:
-        for line in file:
-            url = line.strip()
-            if url:  # skip empty lines
-                urls.append(url)
-    logger.debug(f"Read {len(urls)} URLs from file: {file_path}")
-    return urls
 
 
 def run_catalogue(file_path: str) -> int:
@@ -49,27 +23,50 @@ def run_catalogue(file_path: str) -> int:
         int: 0 if all URLs are processed successfully, 1 if any error occurs.
     """
     logger.info(f"Running model catalogue on file: {file_path}")
-
-    try:
-        urls = read_urls_from_file(file_path)
-    except (FileNotFoundError, IOError, UnicodeDecodeError) as e:
-        logger.error(f"Error reading file '{file_path}': {e}")
-        return 1
-
-    try:
-        url_bundles = bundle(urls)
-    except ValueError as e:
-        logger.error(f"Error while bundling URLs: {e}")
-        return 1
-
     catalogue = ModelCatalogue()
+    success = True
 
-    for url_bundle in url_bundles:
-        catalogue.addModel(Model(url_bundle))
+    # Extract URLs line-by-line, create models, and add them to the catalogue
+    try:
+        with open(file_path, 'r', encoding='ascii') as f:
+            for line_num, line in enumerate(f, 1):
+                line = line.strip()
+                if not line:
+                    logger.warning(f"Skipping empty line{line_num}")
+                    continue
 
+                parts = [part.strip() for part in line.split(',')]
+                if len(parts) != 3:
+                    logger.error(
+                        "Line {} must have exactly 3 comma-separated fields: {}",
+                        line_num,
+                        line
+                    )
+                    success = False
+                    continue
+
+                # Filter out empty strings
+                urls = [url for url in parts if url]
+
+                try:
+                    catalogue.addModel(Model(urls))
+                except Exception as e:
+                    logger.error(f"Error processing line {line_num}: {e}")
+                    success = False
+
+    except FileNotFoundError:
+        logger.error(f"File not found: {file_path}")
+        return 1
+    except Exception as e:
+        logger.error(f"Unexpected error reading file: {e}")
+        return 1
+
+    # Evaluate the models according to our metrics
     catalogue.evaluateModels()
+
+    # Print the results
     print(catalogue.generateReport())
-    return 0
+    return 0 if success else 1
 
 
 if __name__ == "__main__":
