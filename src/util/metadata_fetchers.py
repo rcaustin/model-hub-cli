@@ -120,6 +120,17 @@ class GitHubFetcher(MetadataFetcher):
                     repo_url
                 )
 
+            # Fetch main repository info
+            repo_url = f"{self.BASE_API_URL}/{owner}/{repo}"
+            logger.debug(f"Fetching GitHub repo info from: {repo_url}")
+            repo_resp = self.session.get(repo_url, headers=headers, timeout=5)
+            if repo_resp.ok:
+                repo_data = repo_resp.json()
+                metadata["clone_url"] = repo_data.get("clone_url")
+                metadata["stargazers_count"] = repo_data.get("stargazers_count", 0)
+                metadata["forks_count"] = repo_data.get("forks_count", 0)
+                logger.debug("GitHub repository data retrieved.")
+
             return metadata if metadata else None
 
         except Exception as e:
