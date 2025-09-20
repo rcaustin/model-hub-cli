@@ -131,6 +131,16 @@ class GitHubFetcher(MetadataFetcher):
                 metadata["forks_count"] = repo_data.get("forks_count", 0)
                 logger.debug("GitHub repository data retrieved.")
 
+            # Fetch commit activity
+            commits_url = f"{self.BASE_API_URL}/{owner}/{repo}/commits"
+            params: dict[str, Any] = {"since": "30 days ago", "per_page": 100}  # Last 30 days
+            commits_resp = self.session.get(commits_url, params=params, headers=headers)
+            if commits_resp.ok:
+                commits = commits_resp.json()
+                avg_daily_commits = len(commits) / 30
+                metadata["avg_daily_commits_30d"] = avg_daily_commits
+                logger.debug("GitHub commit activity data retrieved.")
+
             return metadata if metadata else None
 
         except Exception as e:
