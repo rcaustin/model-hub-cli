@@ -101,7 +101,7 @@ class GitHubFetcher(MetadataFetcher):
                 logger.debug("GitHub contributors data retrieved.")
             else:
                 logger.warning(
-                    "Failed to fetch contributors (HTTP {}) for {}.",
+                    "Failed to fetch contributors (HTTP %s) for %s.",
                     contributors_resp.status_code,
                     repo_url
                 )
@@ -115,7 +115,7 @@ class GitHubFetcher(MetadataFetcher):
                 logger.debug("GitHub license data retrieved.")
             else:
                 logger.warning(
-                    "Failed to fetch license (HTTP {}) for {}.",
+                    "Failed to fetch license (HTTP %s) for %s.",
                     license_resp.status_code,
                     repo_url
                 )
