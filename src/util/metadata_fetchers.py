@@ -17,7 +17,9 @@ class MetadataFetcher:
 class HuggingFaceFetcher(MetadataFetcher):
     """Fetch metadata from the Hugging Face API."""
 
-    BASE_API_URL = "https://huggingface.co/api/models"
+    def __init__(self, session: Optional[requests.Session] = None):
+        self.session = session or requests.Session()
+        self.BASE_API_URL = "https://huggingface.co/api/models"
 
     def fetch_metadata(self, model_url: str) -> Optional[Dict[str, Any]]:
         if not model_url:
@@ -25,16 +27,18 @@ class HuggingFaceFetcher(MetadataFetcher):
             return None
 
         try:
-            parts = model_url.rstrip("/").split("/")
-            if len(parts) < 2:
+            parsed = urlparse(model_url)
+            path_parts = parsed.path.strip("/").split("/")
+            if len(path_parts) < 2:
                 logger.warning(f"Malformed Hugging Face model URL: {model_url}")
                 return None
 
-            org, model_id = parts[-2], parts[-1]
+            org, model_id = path_parts[0], path_parts[1]
+
             api_url = f"{self.BASE_API_URL}/{org}/{model_id}"
             logger.debug(f"Fetching Hugging Face metadata from: {api_url}")
 
-            response = requests.get(api_url, timeout=5)
+            response = self.session.get(api_url, timeout=5)
             if response.ok:
                 logger.debug(f"Hugging Face metadata retrieved for model '{model_id}'.")
                 return response.json()
@@ -53,10 +57,13 @@ class HuggingFaceFetcher(MetadataFetcher):
 class GitHubFetcher(MetadataFetcher):
     """Fetch metadata from the GitHub API."""
 
-    BASE_API_URL = "https://api.github.com/repos"
-
-    def __init__(self, token: Optional[str] = None):
+    def __init__(
+        self, token: Optional[str] = None,
+        session: Optional[requests.Session] = None
+    ):
         self.token = token
+        self.session = session or requests.Session()
+        self.BASE_API_URL = "https://api.github.com/repos"
 
     def fetch_metadata(self, repo_url: str) -> Optional[Dict[str, Any]]:
         if not repo_url:
@@ -84,7 +91,7 @@ class GitHubFetcher(MetadataFetcher):
             # Fetch contributors
             contributors_url = f"{self.BASE_API_URL}/{owner}/{repo}/contributors"
             logger.debug(f"Fetching GitHub contributors from: {contributors_url}")
-            contributors_resp = requests.get(
+            contributors_resp = self.session.get(
                 contributors_url,
                 headers=headers,
                 timeout=5
@@ -94,7 +101,7 @@ class GitHubFetcher(MetadataFetcher):
                 logger.debug("GitHub contributors data retrieved.")
             else:
                 logger.warning(
-                    "Failed to fetch contributors (HTTP {}) for {}.",
+                    "Failed to fetch contributors (HTTP %s) for %s.",
                     contributors_resp.status_code,
                     repo_url
                 )
@@ -102,13 +109,13 @@ class GitHubFetcher(MetadataFetcher):
             # Fetch license
             license_url = f"{self.BASE_API_URL}/{owner}/{repo}/license"
             logger.debug(f"Fetching GitHub license from: {license_url}")
-            license_resp = requests.get(license_url, headers=headers, timeout=5)
+            license_resp = self.session.get(license_url, headers=headers, timeout=5)
             if license_resp.ok:
                 metadata["license"] = license_resp.json().get("license").get("spdx_id")
                 logger.debug("GitHub license data retrieved.")
             else:
                 logger.warning(
-                    "Failed to fetch license (HTTP {}) for {}.",
+                    "Failed to fetch license (HTTP %s) for %s.",
                     license_resp.status_code,
                     repo_url
                 )
