@@ -130,6 +130,12 @@ class GitHubFetcher(MetadataFetcher):
                 metadata["stargazers_count"] = repo_data.get("stargazers_count", 0)
                 metadata["forks_count"] = repo_data.get("forks_count", 0)
                 logger.debug("GitHub repository data retrieved.")
+            else:
+                logger.warning(
+                    "Failed to fetch repository info (HTTP %s) for %s.",
+                    repo_resp.status_code,
+                    repo_url
+                )
 
             # Fetch commit activity
             commits_url = f"{self.BASE_API_URL}/{owner}/{repo}/commits"
@@ -140,6 +146,12 @@ class GitHubFetcher(MetadataFetcher):
                 avg_daily_commits = len(commits) / 30
                 metadata["avg_daily_commits_30d"] = avg_daily_commits
                 logger.debug("GitHub commit activity data retrieved.")
+            else:
+                logger.warning(
+                    "Failed to fetch commits (HTTP %s) for %s.",
+                    commits_resp.status_code,
+                    repo_url
+                )
 
             return metadata if metadata else None
 

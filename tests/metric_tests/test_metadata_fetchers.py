@@ -55,7 +55,19 @@ def test_github_fetcher_success():
     license_response = MagicMock(ok=True)
     license_response.json.return_value = {"license": {"spdx_id": "MIT"}}
 
-    session.get.side_effect = [contrib_response, license_response]
+    # Mock repository response
+    repo_response = MagicMock(ok=True)
+    repo_response.json.return_value = [{
+        "clone_url": "https://github.com/org/repo.git",
+        "stargazers_count": 100,
+        "forks_count": 50
+    }]
+
+    # Mock commit activity response
+    commit_response = MagicMock(ok=True)
+    commit_response.json.return_value = {"avg_daily_commits_30d": 5}
+
+    session.get.side_effect = [contrib_response, license_response, repo_response, commit_response]
 
     fetcher = GitHubFetcher(session=session)
     url = "https://github.com/org/repo"
@@ -63,9 +75,13 @@ def test_github_fetcher_success():
 
     assert metadata == {
         "contributors": [{"login": "alice"}, {"login": "bob"}],
-        "license": "MIT"
+        "license": "MIT",
+        "clone_url": "https://github.com/org/repo.git",
+        "stargazers_count": 100,
+        "forks_count": 50,
+        "avg_daily_commits_30d": 5
     }
-    assert session.get.call_count == 2
+    assert session.get.call_count == 4
 
 
 def test_github_fetcher_invalid_url():
@@ -98,10 +114,28 @@ def test_github_fetcher_partial_failure():
     license_response = MagicMock(ok=True)
     license_response.json.return_value = {"license": {"spdx_id": "Apache-2.0"}}
 
-    session.get.side_effect = [contrib_response, license_response]
+    # Repository response succeeds
+    repo_response = MagicMock(ok=True)
+    repo_response.json.return_value = [{
+        "clone_url": "https://github.com/org/repo.git",
+        "stargazers_count": 100,
+        "forks_count": 50
+    }]
+
+    # Commit response succeeds
+    commit_response = MagicMock(ok=True)
+    commit_response.json.return_value = {"avg_daily_commits_30d": 5}
+
+    session.get.side_effect = [contrib_response, license_response, repo_response, commit_response]
 
     fetcher = GitHubFetcher(session=session)
     metadata = fetcher.fetch_metadata("https://github.com/org/repo")
 
-    assert metadata == {"license": "Apache-2.0"}
-    assert session.get.call_count == 2
+    assert metadata == {
+        "license": "Apache-2.0",
+        "clone_url": "https://github.com/org/repo.git",
+        "stargazers_count": 100,
+        "forks_count": 50,
+        "avg_daily_commits_30d": 5
+    }
+    assert session.get.call_count == 4
