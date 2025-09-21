@@ -57,15 +57,15 @@ def test_github_fetcher_success():
 
     # Mock repository response
     repo_response = MagicMock(ok=True)
-    repo_response.json.return_value = [{
+    repo_response.json.return_value = {
         "clone_url": "https://github.com/org/repo.git",
         "stargazers_count": 100,
         "forks_count": 50
-    }]
+    }
 
     # Mock commit activity response
     commit_response = MagicMock(ok=True)
-    commit_response.json.return_value = {"avg_daily_commits_30d": 5}
+    commit_response.json.return_value = [{}]*150  # 150 commits in last 30 days
 
     session.get.side_effect = [contrib_response, license_response, repo_response, commit_response]
 
@@ -116,15 +116,15 @@ def test_github_fetcher_partial_failure():
 
     # Repository response succeeds
     repo_response = MagicMock(ok=True)
-    repo_response.json.return_value = [{
+    repo_response.json.return_value = {
         "clone_url": "https://github.com/org/repo.git",
         "stargazers_count": 100,
         "forks_count": 50
-    }]
+    }
 
     # Commit response succeeds
     commit_response = MagicMock(ok=True)
-    commit_response.json.return_value = {"avg_daily_commits_30d": 5}
+    commit_response.json.return_value = [{}]*150  # 150 commits in last 30 days
 
     session.get.side_effect = [contrib_response, license_response, repo_response, commit_response]
 
