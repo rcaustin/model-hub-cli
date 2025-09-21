@@ -1,3 +1,26 @@
+"""
+CodeQualityMetric - Evaluates code quality based on GitHub repository analysis.
+
+Score Breakdown (Total: 1.0):
+- Code Popularity (0.2 max):
+  - Stars: 0.01 per 50 stars (max 0.1)
+  - Forks: 0.01 per 10 forks (max 0.1)
+- Testing Quality (0.3 max):
+  - Based on test-to-source file ratio
+  - Full score when test files >= source files
+- Commit Activity (0.3 max):
+  - 0.05 per daily commit (30-day average)
+- Documentation (0.2 max):
+  - LICENSE file: 0.05
+  - README file: 0.05
+  - CONTRIBUTING file: 0.10
+
+Requirements:
+- GitHub metadata with clone_url for full analysis
+- Returns 0.0 if no GitHub metadata available
+- Popularity score calculated even without clone_url
+"""
+
 import subprocess
 import tempfile
 from pathlib import Path
