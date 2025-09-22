@@ -12,7 +12,7 @@ class Model(ModelData):
         self,
         urls: List[str]
     ):
-        # Extract and Classify URLs
+        # Extract andClassify URLs
         urlset: URLSet = classify_urls(urls)
         self.modelLink: str = urlset.model
         self.codeLink: Optional[str] = urlset.code
