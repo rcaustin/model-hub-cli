@@ -11,3 +11,6 @@ logs/
 
 # Test Coverage
 .coverage
+
+# Autograder Scripts
+.autograder
