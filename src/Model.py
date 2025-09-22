@@ -13,10 +13,10 @@ class Model(ModelData):
         urls: List[str]
     ):
         # Extract and Classify URLs
-        urls: URLSet = classify_urls(urls)
-        self.modelLink: str = urls.model
-        self.codeLink: Optional[str] = urls.code
-        self.datasetLink: Optional[str] = urls.dataset
+        urlset: URLSet = classify_urls(urls)
+        self.modelLink: str = urlset.model
+        self.codeLink: Optional[str] = urlset.code
+        self.datasetLink: Optional[str] = urlset.dataset
 
         # Metadata Caching
         self._hf_metadata: Optional[Dict[str, Any]] = None
@@ -48,23 +48,29 @@ class Model(ModelData):
             self._github_metadata = fetcher.fetch_metadata(self.codeLink)
         return self._github_metadata
 
+    def get_score(self, metric_name: str, default: float = 0.0) -> float:
+        value = self.evaluations.get(metric_name, default)
+        if isinstance(value, dict):
+            return value.get("average", default)
+        return value
+
+    def get_latency(self, metric_name: str) -> int:
+        latency = self.evaluationsLatency.get(metric_name, 0.0)
+        return int(latency * 1000)
+
+    def evaluate_all(self, metrics: List[Metric]) -> None:
+        for metric in metrics:
+            self.evaluate(metric)
+        self.computeNetScore()
+
     def evaluate(self, metric: Metric) -> None:
-        # Evaluate the given metric and record its score and evaluation time.
         start: float = time.time()
         score: Union[float, dict[str, float]] = metric.evaluate(self)
         end: float = time.time()
-        elapsed: float = end - start
 
-        # Record the evaluation results.
         metric_name: str = type(metric).__name__
         self.evaluations[metric_name] = score
-        self.evaluationsLatency[metric_name] = elapsed
-
-    def getEvals(self) -> dict[str, Union[float, dict[str, float]]]:
-        return self.evaluations
-
-    def getEvalsLatency(self) -> dict[str, float]:
-        return self.evaluationsLatency
+        self.evaluationsLatency[metric_name] = end - start
 
     def getCategory(self) -> str:
         categories = []
@@ -77,33 +83,14 @@ class Model(ModelData):
         return f"[{', '.join(categories)}]"
 
     def computeNetScore(self) -> float:
-        """
-        Computes the NetScore using the formula:
-        NetScore = License * (
-            0.2 * Size +
-            0.3 * Ramp-Up +
-            0.1 * Bus Factor +
-            0.1 * Availability +
-            0.1 * Dataset Quality +
-            0.1 * Cody Quality +
-            0.1 * Performance Claims
-        )
-        """
-        def get_score(metric_name: str, default: float = 0.0) -> float:
-            score = self.evaluations.get(metric_name, default)
-            if isinstance(score, dict):
-                # THIS LINE DEPENDS ON HOW SizeMetric IS IMPLEMENTED
-                return score.get("average", default)
-            return score
-
-        license_score = get_score("LicenseMetric")
-        size_score = get_score("SizeMetric")
-        rampup_score = get_score("RampUpMetric")
-        bus_score = get_score("BusFactorMetric")
-        avail_score = get_score("AvailabilityMetric")
-        data_qual_score = get_score("DatasetQualityMetric")
-        code_qual_score = get_score("CodeQualityMetric")
-        perf_score = get_score("PerformanceClaimsMetric")
+        license_score = self.get_score("LicenseMetric")
+        size_score = self.get_score("SizeMetric")
+        rampup_score = self.get_score("RampUpMetric")
+        bus_score = self.get_score("BusFactorMetric")
+        avail_score = self.get_score("AvailabilityMetric")
+        data_qual_score = self.get_score("DatasetQualityMetric")
+        code_qual_score = self.get_score("CodeQualityMetric")
+        perf_score = self.get_score("PerformanceClaimsMetric")
 
         weighted_sum = (
             0.2 * size_score +
@@ -118,6 +105,6 @@ class Model(ModelData):
         net_score = license_score * weighted_sum
 
         self.evaluations["NetScore"] = net_score
-        self.evaluationsLatency["NetScore"] = 0.0  # Derived metric; not timed
+        self.evaluationsLatency["NetScore"] = 0.0  # Derived metric
 
         return net_score
