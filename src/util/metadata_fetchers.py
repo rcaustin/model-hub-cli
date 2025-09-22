@@ -120,6 +120,41 @@ class GitHubFetcher(MetadataFetcher):
                     repo_url
                 )
 
+            # Fetch main repository info
+            repo_url = f"{self.BASE_API_URL}/{owner}/{repo}"
+            logger.debug(f"Fetching GitHub repo info from: {repo_url}")
+            repo_resp = self.session.get(repo_url, headers=headers, timeout=5)
+            if repo_resp.ok:
+                metadata["clone_url"] = repo_resp.json().get("clone_url")
+                metadata["stargazers_count"] = repo_resp.json().get("stargazers_count", 0)
+                metadata["forks_count"] = repo_resp.json().get("forks_count", 0)
+
+                logger.debug("GitHub repository data retrieved.")
+                logger.debug(f"clone_url : {metadata['clone_url']}")
+                logger.debug(f"stargazers_count : {metadata['stargazers_count']}")
+                logger.debug(f"forks_count : {metadata['forks_count']}")
+            else:
+                logger.warning(
+                    "Failed to fetch repository info (HTTP %s) for %s.",
+                    repo_resp.status_code,
+                    repo_url
+                )
+
+            # Fetch commit activity
+            commits_url = f"{self.BASE_API_URL}/{owner}/{repo}/commits"
+            params: dict[str, Any] = {"since": "30 days ago", "per_page": 100}  # Last 30 days
+            commits_resp = self.session.get(commits_url, params=params, headers=headers)
+            if commits_resp.ok:
+                avg_daily_commits = len(commits_resp.json()) / 30
+                metadata["avg_daily_commits_30d"] = avg_daily_commits
+                logger.debug("GitHub commit activity data retrieved.")
+            else:
+                logger.warning(
+                    "Failed to fetch commits (HTTP %s) for %s.",
+                    commits_resp.status_code,
+                    repo_url
+                )
+
             return metadata if metadata else None
 
         except Exception as e:
