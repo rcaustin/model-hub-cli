@@ -23,114 +23,51 @@ class ModelCatalogue:
     def addModel(self, model: Model):
         self.models.append(model)
 
-        logger.info(
+        logger.debug(
             """Model added to the catalogue:
             Model URL = '{}',
             Dataset URL = '{}',
-            Code URL = '{}'
-            """,
+            Code URL = '{}'""",
             model.modelLink,
             model.datasetLink,
             model.codeLink
         )
 
     def evaluateModels(self):
-        # Evaluate each model with each metric and store results
         for model in self.models:
-            for metric in self.metrics:
-                model.evaluate(metric)
-            model.computeNetScore()
+            model.evaluate_all(self.metrics)
 
     def generateReport(self):
-        # Generate a consolidated NDJSON report for all models.
         ndjson_report = []
         for model in self.models:
             ndjson_report.append(self.getModelNDJSON(model))
 
-        logger.info("Report generated for {} models.", len(self.models))
-
+        logger.debug("Report generated for {} models.", len(self.models))
         return "\n-----\n".join(ndjson_report)
 
     def getModelNDJSON(self, model: Model) -> str:
-        # Create a dictionary with the required fields for NDJSON output.
         ndjson_obj = {
             "name": model.name,
             "category": model.getCategory(),
-            "net_score": model.evaluations.get(
-                "NetScore", 0.0
-            ),
-            "net_score_latency": int(
-                model.evaluationsLatency.get(
-                    "NetScore", 0.0
-                ) * 1000
-            ),
-            "ramp_up_time": model.evaluations.get(
-                "RampUpMetric", 0.0
-            ),
-            "ramp_up_time_latency": int(
-                model.evaluationsLatency.get(
-                    "RampUpMetric", 0.0
-                ) * 1000
-            ),
-            "bus_factor": model.evaluations.get(
-                "BusFactorMetric", 0.0
-            ),
-            "bus_factor_latency": int(
-                model.evaluationsLatency.get(
-                    "BusFactorMetric", 0.0
-                ) * 1000
-            ),
-            "performance_claims": model.evaluations.get(
-                "PerformanceClaimsMetric", 0.0
-            ),
-            "performance_claims_latency": int(
-                model.evaluationsLatency.get(
-                    "PerformanceClaimsMetric", 0.0
-                ) * 1000
-            ),
-            "license": model.evaluations.get(
-                "LicenseMetric", 0.0
-            ),
-            "license_latency": int(
-                model.evaluationsLatency.get(
-                    "LicenseMetric", 0.0
-                ) * 1000
-            ),
-            "size_score": model.evaluations.get(
-                "SizeMetric", {}
-            ),
-            "size_score_latency": int(
-                model.evaluationsLatency.get(
-                    "SizeMetric", 0.0
-                ) * 1000
-            ),
-            "availability_score": model.evaluations.get(
-                "AvailabilityMetric", 0.0
-            ),
-            "availability_score_latency": int(
-                model.evaluationsLatency.get(
-                    "AvailabilityMetric", 0.0
-                ) * 1000
-            ),
-            "dataset_quality": model.evaluations.get(
-                "DatasetQualityMetric", 0.0
-            ),
-            "dataset_quality_latency": int(
-                model.evaluationsLatency.get(
-                    "DatasetQualityMetric", 0.0
-                ) * 1000
-            ),
-            "code_quality": model.evaluations.get(
-                "CodeQualityMetric", 0.0
-            ),
-            "code_quality_latency": int(
-                model.evaluationsLatency.get(
-                    "CodeQualityMetric", 0.0
-                ) * 1000
-            ),
+            "net_score": model.get_score("NetScore"),
+            "net_score_latency": model.get_latency("NetScore"),
+            "ramp_up_time": model.get_score("RampUpMetric"),
+            "ramp_up_time_latency": model.get_latency("RampUpMetric"),
+            "bus_factor": model.get_score("BusFactorMetric"),
+            "bus_factor_latency": model.get_latency("BusFactorMetric"),
+            "performance_claims": model.get_score("PerformanceClaimsMetric"),
+            "performance_claims_latency": model.get_latency("PerformanceClaimsMetric"),
+            "license": model.get_score("LicenseMetric"),
+            "license_latency": model.get_latency("LicenseMetric"),
+            "size_score": model.evaluations.get("SizeMetric", {}),  # may be dict
+            "size_score_latency": model.get_latency("SizeMetric"),
+            "availability_score": model.get_score("AvailabilityMetric"),
+            "availability_score_latency": model.get_latency("AvailabilityMetric"),
+            "dataset_quality": model.get_score("DatasetQualityMetric"),
+            "dataset_quality_latency": model.get_latency("DatasetQualityMetric"),
+            "code_quality": model.get_score("CodeQualityMetric"),
+            "code_quality_latency": model.get_latency("CodeQualityMetric"),
         }
-        # Convert the dictionary to NDJSON format
-        ndjson_lines = []
-        for k, v in ndjson_obj.items():
-            ndjson_lines.append(json.dumps({k: v}))
-        return "\n".join(ndjson_lines) + "\n"
+
+        # Convert dictionary to NDJSON (one key-value pair per line)
+        return "\n".join(json.dumps({k: v}) for k, v in ndjson_obj.items()) + "\n"
