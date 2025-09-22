@@ -7,6 +7,8 @@ from typing import Any, Dict, Optional
 
 import pytest
 
+from src.Model import Model
+
 
 @dataclass
 class StubModelData:
@@ -38,6 +40,15 @@ def base_model() -> StubModelData:
         codeLink="https://github.com/huggingface/transformers",
         datasetLink="https://huggingface.co/datasets/squad"
     )
+
+
+@pytest.fixture
+def sample_model(sample_urls) -> Model:
+    """
+    Fixture that returns a Model instance created from sample URLs.
+    Used as a baseline test model for testing Model-related functionality.
+    """
+    return Model(sample_urls)
 
 
 @pytest.fixture
