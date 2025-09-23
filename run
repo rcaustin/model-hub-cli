@@ -54,6 +54,12 @@ function run_test {
   echo "${PASSED}/${TOTAL} test cases passed. ${COVERAGE_PERCENT}% line coverage achieved."
 }
 
+function run_test_verbose {
+  echo "Running test suite..."
+  $PYTHON -m coverage run -m pytest tests/
+  $PYTHON -m coverage report
+}
+
 function run_program {
   local file_path="$1"
   "$PYTHON" -m src.commands.catalogue_runner "$file_path"
@@ -74,6 +80,9 @@ case "$ARG" in
     ;;
   test)
     run_test
+    ;;
+  testall)
+    run_test_verbose
     ;;
   /*)
     run_program "$ARG"
