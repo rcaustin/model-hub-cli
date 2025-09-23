@@ -47,30 +47,30 @@ class ModelCatalogue:
             ndjson_report.append(self.getModelNDJSON(model))
 
         logger.debug("Report generated for {} models.", len(self.models))
-        return "".join(ndjson_report)
+        return "\n".join(ndjson_report)
 
     def getModelNDJSON(self, model: Model) -> str:
         ndjson_obj = {
             "name": model.name,
             "category": model.getCategory(),
-            "net_score": model.get_score("NetScore"),
-            "net_score_latency": model.get_latency("NetScore"),
-            "ramp_up_time": model.get_score("RampUpMetric"),
-            "ramp_up_time_latency": model.get_latency("RampUpMetric"),
-            "bus_factor": model.get_score("BusFactorMetric"),
-            "bus_factor_latency": model.get_latency("BusFactorMetric"),
-            "performance_claims": model.get_score("PerformanceClaimsMetric"),
-            "performance_claims_latency": model.get_latency("PerformanceClaimsMetric"),
-            "license": model.get_score("LicenseMetric"),
-            "license_latency": model.get_latency("LicenseMetric"),
-            "size_score": model.evaluations.get("SizeMetric", {}),  # may be dict
-            "size_score_latency": model.get_latency("SizeMetric"),
-            "dataset_and_code_score": model.get_score("AvailabilityMetric"),
-            "dataset_and_code_score_latency": model.get_latency("AvailabilityMetric"),
-            "dataset_quality": model.get_score("DatasetQualityMetric"),
-            "dataset_quality_latency": model.get_latency("DatasetQualityMetric"),
-            "code_quality": model.get_score("CodeQualityMetric"),
-            "code_quality_latency": model.get_latency("CodeQualityMetric"),
+            "net_score": model.getScore("NetScore"),
+            "net_score_latency": model.getLatency("NetScore"),
+            "ramp_up_time": model.getScore("RampUpMetric"),
+            "ramp_up_time_latency": model.getLatency("RampUpMetric"),
+            "bus_factor": model.getScore("BusFactorMetric"),
+            "bus_factor_latency": model.getLatency("BusFactorMetric"),
+            "performance_claims": model.getScore("PerformanceClaimsMetric"),
+            "performance_claims_latency": model.getLatency("PerformanceClaimsMetric"),
+            "license": model.getScore("LicenseMetric"),
+            "license_latency": model.getLatency("LicenseMetric"),
+            "size_score": model.getScore("SizeMetric", {}),  # may be dict
+            "size_score_latency": model.getLatency("SizeMetric"),
+            "dataset_and_code_score": model.getScore("AvailabilityMetric"),
+            "dataset_and_code_score_latency": model.getLatency("AvailabilityMetric"),
+            "dataset_quality": model.getScore("DatasetQualityMetric"),
+            "dataset_quality_latency": model.getLatency("DatasetQualityMetric"),
+            "code_quality": model.getScore("CodeQualityMetric"),
+            "code_quality_latency": model.getLatency("CodeQualityMetric"),
         }
 
         # Convert dictionary to NDJSON (one key-value pair per line)
