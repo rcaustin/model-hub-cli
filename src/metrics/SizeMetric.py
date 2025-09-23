@@ -36,18 +36,12 @@ class SizeMetric(Metric):
     # Device specifications with usable memory (after overhead and penalties)
     DEVICE_SPECS = {
         "raspberry_pi": 2.0,  # 16GB * 0.125 penalty = 2GB usable
-        "jetson_nano": 3.0,   # 4GB * 0.75 penalty = 3GB usable  
+        "jetson_nano": 3.0,   # 4GB * 0.75 penalty = 3GB usable
         "desktop_pc": 20.0,   # 24GB - 4GB overhead = 20GB usable
         "aws_server": 60.0    # 64GB - 4GB overhead = 60GB usable
     }
 
-    # Tensor type sizes in bytes per parameter
-    TENSOR_SIZES = {
-        "float32": 4,
-        "float16": 2,
-        "int8": 1,
-        "int4": 0.5
-    }
+    DEFAULT_BYTES_PER_PARAM = 2  # Default to float16
 
     def evaluate(self, model: ModelData) -> dict[str, float]:
         """
@@ -59,7 +53,7 @@ class SizeMetric(Metric):
             model_size_gb = self._get_model_size(model)
 
             if model_size_gb is None:
-                logger.warning(f"Could not determine model size for {model.modelLink}")
+                logger.warning(f"Could not determine model size for {model.name}")
                 return {device: 0.0 for device in self.DEVICE_SPECS.keys()}
 
             # Calculate score for each device
@@ -77,79 +71,123 @@ class SizeMetric(Metric):
 
     def _get_model_size(self, model: ModelData) -> float:
         """
-        Get model size in GB using model's hf_metadata property.
+        Get model size in GB using: parameter_count * bytes_per_param
+        Uses actual tensor dtype if available, otherwise defaults to float16.
         Returns None if size cannot be determined.
         """
         try:
-            # Use the model's hf_metadata property (which handles fetching automatically)
             if not model.hf_metadata:
-                logger.warning(f"No Hugging Face metadata available for {model.modelLink}")
+                logger.warning(f"No Hugging Face metadata available for {model.name}")
                 return None
-
             metadata = model.hf_metadata
 
-            # Try to get parameter count from metadata
-            param_count = None
-
-            # Common locations for parameter count in HF metadata
-            if "config" in metadata:
-                config = metadata["config"]
-                # Check various parameter count fields
-                for field in ["num_parameters", "n_parameters", "total_params"]:
-                    if field in config:
-                        param_count = config[field]
-                        break
-
+            # Get parameter count
+            param_count = self._get_parameter_count(metadata)
             if param_count is None:
-                logger.warning(f"Could not find parameter count in metadata for {model.modelLink}")
+                logger.warning(f"Could not find parameter count for {model.name}")
                 return None
 
-            # Determine tensor types (assume float16 if not specified)
-            tensor_types = self._get_tensor_types(metadata)
-            avg_bytes_per_param = self._calculate_avg_bytes_per_param(tensor_types)
+            # Try to get actual tensor size from metadata, otherwise use default
+            bytes_per_param = self._extract_bytes_from_dtype(metadata)
 
-            # Calculate size in GB
-            size_bytes = param_count * avg_bytes_per_param
-            size_gb = size_bytes / (1024 ** 3)  # Convert to GB
+            # Calculate model size: param_count * bytes_per_param
+            size_bytes = param_count * bytes_per_param
+            size_gb = size_bytes / (1024 ** 3)
 
+            logger.info(f"Model size: {param_count:,} params * {bytes_per_param} bytes = {size_gb:.2f}GB")
             return size_gb
 
         except Exception as e:
-            logger.error(f"Error getting model size: {e}")
+            logger.error(f"Error calculating model size: {e}")
             return None
 
-    def _get_tensor_types(self, metadata: dict) -> list:
-        """Extract tensor types from metadata."""
-        # Default to float16 if not specified
-        default_types = ["float16"]
-
+    def _extract_bytes_from_dtype(self, metadata: dict) -> float:
+        """
+        Extract number from dtype field names (e.g., 'float16' -> 16, 'int8' -> 8).
+        Returns bytes per parameter, defaults to 2 (float16) if not found.
+        """
+        import re
+        
         try:
             if "config" in metadata:
                 config = metadata["config"]
-                if "torch_dtype" in config:
-                    return [config["torch_dtype"]]
-                if "dtype" in config:
-                    return [config["dtype"]]
+                
+                # Check torch_dtype field
+                torch_dtype = config.get("torch_dtype", "")
+                if torch_dtype:
+                    # Extract number from dtype name (e.g., "float16" -> 16, "int8" -> 8)
+                    match = re.search(r'(\d+)', str(torch_dtype))
+                    if match:
+                        bits = int(match.group(1))
+                        bytes_per_param = bits / 8  # Convert bits to bytes
+                        logger.debug(f"Extracted from torch_dtype '{torch_dtype}': {bits} bits = {bytes_per_param} bytes/param")
+                        return bytes_per_param
+                
+                # Check quantization config for bits field
+                if "quantization_config" in config:
+                    quant_config = config["quantization_config"]
+                    if isinstance(quant_config, dict) and "bits" in quant_config:
+                        bits = quant_config["bits"]
+                        bytes_per_param = bits / 8
+                        logger.debug(f"Found quantization bits: {bits} = {bytes_per_param} bytes/param")
+                        return bytes_per_param
+        
+        except Exception as e:
+            logger.debug(f"Error extracting dtype: {e}")
+        
+        # Default to float16 (2 bytes)
+        logger.debug("Using default float16 (2 bytes/param)")
+        return self.DEFAULT_BYTES_PER_PARAM
 
-            return default_types
+    def _get_parameter_count(self, metadata: dict) -> int:
+        """Extract parameter count from HF metadata."""
+        try:
+            # Check config first (most common)
+            if "config" in metadata:
+                config = metadata["config"]
+                for field in ["num_parameters", "n_parameters", "total_params"]:
+                    if field in config and isinstance(config[field], (int, float)):
+                        param_count = int(config[field])
+                        if param_count > 0:
+                            logger.debug(f"Found parameter count: {param_count:,} at config.{field}")
+                            return param_count
 
-        except Exception:
-            return default_types
+            # Check direct metadata
+            for field in ["num_parameters", "parameters", "total_parameters"]:
+                if field in metadata and isinstance(metadata[field], (int, float)):
+                    param_count = int(metadata[field])
+                    if param_count > 0:
+                        logger.debug(f"Found parameter count: {param_count:,} at {field}")
+                        return param_count
 
-    def _calculate_avg_bytes_per_param(self, tensor_types: list) -> float:
-        """Calculate average bytes per parameter for given tensor types."""
-        if not tensor_types:
-            return self.TENSOR_SIZES["float16"]  # Default
+            # Special case: extract from model name patterns (e.g., "llama-7b", "gpt-3.5b")
+            if "config" in metadata and "name_or_path" in metadata["config"]:
+                name = metadata["config"]["name_or_path"]
+                param_count = self._extract_params_from_name(name)
+                if param_count:
+                    logger.debug(f"Extracted parameter count from name: {param_count:,}")
+                    return param_count
 
-        total_bytes = 0
-        valid_types = 0
+            return None
 
-        for tensor_type in tensor_types:
-            if tensor_type in self.TENSOR_SIZES:
-                total_bytes += self.TENSOR_SIZES[tensor_type]
-                valid_types += 1
+        except Exception as e:
+            logger.debug(f"Error extracting parameter count: {e}")
+            return None
 
-        if valid_types == 0:
-            return self.TENSOR_SIZES["float16"]  # Default
+    def _extract_params_from_name(self, model_name: str) -> int:
+        """Extract parameter count from model name patterns."""
+        import re
 
-        return total_bytes / valid_types
+        # Single pattern to match: "7b", "3.5B", "70B", "13b", etc.
+        pattern = r'(\d+\.?\d*)[bB]'
+
+        match = re.search(pattern, model_name)
+        if match:
+            try:
+                num = float(match.group(1))
+                # Convert to actual parameter count (B = billion)
+                return int(num * 1_000_000_000)
+            except ValueError:
+                pass
+
+        return None
