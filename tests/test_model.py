@@ -26,7 +26,7 @@ def test_model_initialization_and_url_classification(sample_urls):
 def test_get_category_string(sample_urls):
     model = Model(sample_urls)
     category = model.getCategory()
-    assert category == "[MODEL, DATASET, CODE]"
+    assert category == "MODEL"
 
 
 def test_evaluation_and_latency_storage(sample_urls):

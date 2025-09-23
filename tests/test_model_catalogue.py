@@ -1,7 +1,5 @@
 import json
 
-import pytest
-
 from src.Metric import Metric
 from src.Model import Model
 from src.ModelCatalogue import ModelCatalogue
@@ -70,29 +68,21 @@ def test_generate_report_format(sample_model):
         StubMetric("DatasetQualityMetric", 0.6),
         StubMetric("CodeQualityMetric", 0.65),
         StubMetric("PerformanceClaimsMetric", 0.55),
-        DictMetric(),  # SizeMetric returning {"average": 0.75}
+        DictMetric(),  # SizeMetric returning {"average": 0.75, ...}
     ]
 
     catalogue.addModel(sample_model)
     catalogue.evaluateModels()
     report = catalogue.generateReport()
 
-    # Check format: sections split by -----, each line is a JSON object
-    report_sections = report.split("\n-----\n")
-    assert len(report_sections) == 1  # 1 model only
+    # Each line should be a single valid JSON object (1 model = 1 line)
+    lines = report.strip().splitlines()
+    assert len(lines) == 1  # Only one model added
 
-    lines = report_sections[0].strip().splitlines()
-    for line in lines:
-        try:
-            entry = json.loads(line)
-            assert isinstance(entry, dict)
-            assert len(entry) == 1  # each line is a single key-value pair
-        except json.JSONDecodeError:
-            pytest.fail("NDJSON line is not valid JSON")
+    model_json = json.loads(lines[0])
+    assert isinstance(model_json, dict)
 
-    # Check expected keys are present
-    keys = [json.loads(line) for line in lines]
-    keys = {k for d in keys for k in d.keys()}
+    # Ensure all expected keys are present in the JSON output
     expected_keys = {
         "name", "category", "net_score", "net_score_latency",
         "ramp_up_time", "ramp_up_time_latency",
@@ -100,9 +90,11 @@ def test_generate_report_format(sample_model):
         "performance_claims", "performance_claims_latency",
         "license", "license_latency",
         "size_score", "size_score_latency",
-        "availability_score", "availability_score_latency",
+        "dataset_and_code_score", "dataset_and_code_score_latency",
         "dataset_quality", "dataset_quality_latency",
         "code_quality", "code_quality_latency",
     }
 
-    assert expected_keys.issubset(keys)
+    assert expected_keys.issubset(model_json.keys()), (
+        f"Missing keys: {expected_keys - model_json.keys()}"
+    )
