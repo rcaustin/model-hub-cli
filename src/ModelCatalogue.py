@@ -43,7 +43,7 @@ class ModelCatalogue:
             ndjson_report.append(self.getModelNDJSON(model))
 
         logger.debug("Report generated for {} models.", len(self.models))
-        return "\n-----\n".join(ndjson_report)
+        return "".join(ndjson_report)
 
     def getModelNDJSON(self, model: Model) -> str:
         ndjson_obj = {
@@ -61,8 +61,8 @@ class ModelCatalogue:
             "license_latency": model.get_latency("LicenseMetric"),
             "size_score": model.evaluations.get("SizeMetric", {}),  # may be dict
             "size_score_latency": model.get_latency("SizeMetric"),
-            "availability_score": model.get_score("AvailabilityMetric"),
-            "availability_score_latency": model.get_latency("AvailabilityMetric"),
+            "dataset_and_code_score": model.get_score("AvailabilityMetric"),
+            "dataset_and_code_score_latency": model.get_latency("AvailabilityMetric"),
             "dataset_quality": model.get_score("DatasetQualityMetric"),
             "dataset_quality_latency": model.get_latency("DatasetQualityMetric"),
             "code_quality": model.get_score("CodeQualityMetric"),
@@ -70,4 +70,4 @@ class ModelCatalogue:
         }
 
         # Convert dictionary to NDJSON (one key-value pair per line)
-        return "\n".join(json.dumps({k: v}) for k, v in ndjson_obj.items()) + "\n"
+        return json.dumps(ndjson_obj)
