@@ -30,27 +30,39 @@ class TestSizeMetric:
 
     # --- Tests for evaluate() ---
 
-    def test_evaluate_success(self, metric: SizeMetric, model_with_metadata: Mock) -> None:
+    def test_evaluate_success(
+        self, metric: SizeMetric, model_with_metadata: Mock
+    ) -> None:
         """Test successful evaluation with all device scores."""
         scores = metric.evaluate(model_with_metadata)
-        
+
         assert len(scores) == 4
-        assert all(device in scores for device in ["raspberry_pi", "jetson_nano", "desktop_pc", "aws_server"])
+        assert all(device in scores for device in [
+            "raspberry_pi",
+            "jetson_nano",
+            "desktop_pc",
+            "aws_server"
+        ])
         assert all(0.0 <= score <= 1.0 for score in scores.values())
 
     def test_evaluate_no_metadata(self, metric: SizeMetric, mock_model: Mock) -> None:
         """Test evaluation with model that has no metadata."""
         mock_model.hf_metadata = None
         scores = metric.evaluate(mock_model)
-        
-        expected = {"raspberry_pi": 0.0, "jetson_nano": 0.0, "desktop_pc": 0.0, "aws_server": 0.0}
+
+        expected = {
+            "raspberry_pi": 0.0,
+            "jetson_nano": 0.0,
+            "desktop_pc": 0.0,
+            "aws_server": 0.0
+        }
         assert scores == expected
 
     def test_evaluate_large_model(self, metric: SizeMetric, mock_model: Mock) -> None:
         """Test evaluation with very large model."""
-        mock_model.hf_metadata = {"config": {"num_parameters": 70_000_000_000}}  # 70B = ~140GB
+        mock_model.hf_metadata = {"config": {"num_parameters": 70_000_000_000}}
         scores = metric.evaluate(mock_model)
-        
+
         assert scores["raspberry_pi"] == 0.0
         assert scores["jetson_nano"] == 0.0
         # Large devices might still have some score
@@ -58,31 +70,42 @@ class TestSizeMetric:
 
     def test_evaluate_tiny_model(self, metric: SizeMetric, mock_model: Mock) -> None:
         """Test evaluation with very small model."""
-        mock_model.hf_metadata = {"config": {"num_parameters": 100_000_000}}  # 100M = ~0.2GB
+        mock_model.hf_metadata = {"config": {"num_parameters": 100_000_000}}
         scores = metric.evaluate(mock_model)
 
         # All devices should get high scores
         assert all(score > 0.8 for score in scores.values())
 
     @patch.object(SizeMetric, '_get_model_size')
-    def test_evaluate_error_handling(self, mock_get_size: Mock, metric: SizeMetric, mock_model: Mock) -> None:
+    def test_evaluate_error_handling(
+        self, mock_get_size: Mock, metric: SizeMetric, mock_model: Mock
+    ) -> None:
         """Test evaluation when size calculation fails."""
         mock_get_size.side_effect = Exception("Calculation failed")
         scores = metric.evaluate(mock_model)
 
-        expected = {"raspberry_pi": 0.0, "jetson_nano": 0.0, "desktop_pc": 0.0, "aws_server": 0.0}
+        expected = {
+            "raspberry_pi": 0.0,
+            "jetson_nano": 0.0,
+            "desktop_pc": 0.0,
+            "aws_server": 0.0
+        }
         assert scores == expected
 
     # --- Tests for _get_model_size() ---
 
-    def test_get_model_size_success(self, metric: SizeMetric, model_with_metadata: Mock) -> None:
+    def test_get_model_size_success(
+        self, metric: SizeMetric, model_with_metadata: Mock
+    ) -> None:
         """Test successful model size calculation."""
         size_gb = metric._get_model_size(model_with_metadata)
 
         # 7B params * 2 bytes = 14GB / 1024^3 ≈ 13.04GB
         assert 13.0 <= size_gb <= 14.0  # 7B * 2 bytes ≈ 13GB
 
-    def test_get_model_size_with_dtype(self, metric: SizeMetric, mock_model: Mock) -> None:
+    def test_get_model_size_with_dtype(
+        self, metric: SizeMetric, mock_model: Mock
+    ) -> None:
         """Test model size calculation with different dtypes."""
         # Float32 model
         mock_model.hf_metadata = {
@@ -93,12 +116,17 @@ class TestSizeMetric:
 
         # Quantized model
         mock_model.hf_metadata = {
-            "config": {"num_parameters": 7_000_000_000, "quantization_config": {"bits": 8}}
+            "config": {
+                "num_parameters": 7_000_000_000,
+                "quantization_config": {"bits": 8}
+            }
         }
         size_gb = metric._get_model_size(mock_model)
         assert 6.0 <= size_gb <= 7.0  # 7B * 1 byte ≈ 6.5GB
 
-    def test_get_model_size_no_params(self, metric: SizeMetric, mock_model: Mock) -> None:
+    def test_get_model_size_no_params(
+        self, metric: SizeMetric, mock_model: Mock
+    ) -> None:
         """Test model size calculation when parameter count cannot be found."""
         mock_model.hf_metadata = {"config": {"some_other_field": "value"}}
         assert metric._get_model_size(mock_model) is None
@@ -114,9 +142,13 @@ class TestSizeMetric:
         ("", 2.0),
         (None, 2.0)  # Defaults
     ])
-    def test_extract_bytes_from_dtype(self, metric: SizeMetric, torch_dtype: str, expected_bytes: float) -> None:
+    def test_extract_bytes_from_dtype(
+        self, metric: SizeMetric, torch_dtype: str, expected_bytes: float
+    ) -> None:
         """Test dtype extraction from torch_dtype field."""
-        metadata = {"config": {"torch_dtype": torch_dtype}} if torch_dtype else {"config": {}}
+        metadata = {"config": {"torch_dtype": torch_dtype}} if torch_dtype \
+            else {"config": {}}
+
         assert metric._extract_bytes_from_dtype(metadata) == expected_bytes
 
     def test_extract_bytes_quantization_precedence(self, metric: SizeMetric) -> None:
@@ -126,7 +158,10 @@ class TestSizeMetric:
         assert metric._extract_bytes_from_dtype(metadata) == 0.5
 
         # torch_dtype takes precedence over quantization
-        metadata = {"config": {"torch_dtype": "float32", "quantization_config": {"bits": 8}}}
+        metadata = {"config": {
+            "torch_dtype": "float32",
+            "quantization_config": {"bits": 8}
+        }}
         assert metric._extract_bytes_from_dtype(metadata) == 4.0
 
     # --- Tests for _get_parameter_count() ---
@@ -151,10 +186,14 @@ class TestSizeMetric:
         """Test parameter extraction edge cases."""
         # Invalid values
         assert metric._get_parameter_count({"config": {"num_parameters": -1}}) is None
-        assert metric._get_parameter_count({"config": {"num_parameters": "invalid"}}) is None
-        
+        assert metric._get_parameter_count(
+            {"config": {"num_parameters": "invalid"}}
+        ) is None
+
         # No valid fields
-        assert metric._get_parameter_count({"config": {"model_type": "transformer"}}) is None
+        assert metric._get_parameter_count(
+            {"config": {"model_type": "transformer"}}
+        ) is None
         assert metric._get_parameter_count({"other_field": "value"}) is None
 
     # --- Tests for _extract_params_from_name() ---
@@ -169,7 +208,9 @@ class TestSizeMetric:
         ("model-7.5b-chat", 7_500_000_000),
         ("70B-model", 70_000_000_000),
     ])
-    def test_extract_params_from_name(self, metric: SizeMetric, model_name: str, expected_params: int) -> None:
+    def test_extract_params_from_name(
+        self, metric: SizeMetric, model_name: str, expected_params: int
+    ) -> None:
         """Test parameter extraction from various model name patterns."""
         assert metric._extract_params_from_name(model_name) == expected_params
 
@@ -177,9 +218,14 @@ class TestSizeMetric:
 
     def test_device_specs_values(self, metric: SizeMetric) -> None:
         """Test that DEVICE_SPECS contains expected values and ordering."""
-        expected = {"raspberry_pi": 2.0, "jetson_nano": 3.0, "desktop_pc": 20.0, "aws_server": 60.0}
+        expected = {
+            "raspberry_pi": 2.0,
+            "jetson_nano": 3.0,
+            "desktop_pc": 20.0,
+            "aws_server": 60.0
+        }
         assert metric.DEVICE_SPECS == expected
-        
+
         # Test ordering
         specs = list(metric.DEVICE_SPECS.values())
         assert specs == sorted(specs)  # Should be in ascending order
@@ -202,9 +248,15 @@ class TestSizeMetric:
             assert score == 0.0
 
             # Over limit: score = 0
-            score = max(0.0, min(1.0, (memory_limit - (memory_limit + 1)) / memory_limit))
+            score = max(
+                0.0,
+                min(1.0, (memory_limit - (memory_limit + 1)) / memory_limit)
+            )
             assert score == 0.0
 
             # Under limit: score > 0
-            score = max(0.0, min(1.0, (memory_limit - (memory_limit - 0.1)) / memory_limit))
+            score = max(
+                0.0,
+                min(1.0, (memory_limit - (memory_limit - 0.1)) / memory_limit)
+            )
             assert score > 0.0

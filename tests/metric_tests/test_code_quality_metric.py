@@ -1,6 +1,5 @@
 import pytest
-from unittest.mock import Mock, patch, MagicMock
-from pathlib import Path
+from unittest.mock import patch, MagicMock
 from typing import Any, Dict, List
 from loguru import logger
 from src.metrics.CodeQualityMetric import CodeQualityMetric
@@ -52,49 +51,70 @@ class TestCodeQualityMetric(BaseMetricTest):
 
     # --- Tests ---
 
-    def test_no_github_metadata(self, metric: CodeQualityMetric, model_no_github: Any) -> None:
+    def test_no_github_metadata(
+        self, metric: CodeQualityMetric, model_no_github: Any
+    ) -> None:
         logger.info("Testing model with no GitHub metadata...")
         score: float = metric.evaluate(model_no_github)
         assert score == 0.0
 
-    def test_popularity_only_no_clone(self, metric: CodeQualityMetric, model_popularity_only: Any) -> None:
+    def test_popularity_only_no_clone(
+        self, metric: CodeQualityMetric, model_popularity_only: Any
+    ) -> None:
         logger.info("Testing model with popularity data but no clone URL...")
         score: float = metric.evaluate(model_popularity_only)
         # 0.03 (stars) + 0.03 (forks) + 0.1 (commits) = 0.16
         assert score == pytest.approx(0.16, abs=0.01)
 
     @patch('src.metrics.CodeQualityMetric.subprocess.run')
-    def test_clone_repository_success(self, mock_run: MagicMock, metric: CodeQualityMetric) -> None:
+    def test_clone_repository_success(
+        self, mock_run: MagicMock, metric: CodeQualityMetric
+    ) -> None:
         logger.info("Testing successful repository cloning...")
         mock_run.return_value = MagicMock()
 
-        result: bool = metric._clone_repository("https://github.com/test/repo.git", "/tmp/test")
+        result: bool = metric._clone_repository(
+            "https://github.com/test/repo.git",
+            "/tmp/test"
+        )
 
         assert result is True
         mock_run.assert_called_once()
 
     @patch('src.metrics.CodeQualityMetric.subprocess.run')
-    def test_clone_repository_failure(self, mock_run: MagicMock, metric: CodeQualityMetric) -> None:
+    def test_clone_repository_failure(
+        self, mock_run: MagicMock, metric: CodeQualityMetric
+    ) -> None:
         logger.info("Testing repository cloning failure...")
         from subprocess import CalledProcessError
         mock_run.side_effect = CalledProcessError(1, 'git clone')
 
-        result: bool = metric._clone_repository("https://github.com/test/repo.git", "/tmp/test")
+        result: bool = metric._clone_repository(
+            "https://github.com/test/repo.git",
+            "/tmp/test"
+        )
 
         assert result is False
 
     @patch('src.metrics.CodeQualityMetric.subprocess.run')
-    def test_clone_repository_timeout(self, mock_run: MagicMock, metric: CodeQualityMetric) -> None:
+    def test_clone_repository_timeout(
+        self, mock_run: MagicMock, metric: CodeQualityMetric
+    ) -> None:
         logger.info("Testing repository cloning timeout...")
         from subprocess import TimeoutExpired
         mock_run.side_effect = TimeoutExpired('git clone', 30)
 
-        result: bool = metric._clone_repository("https://github.com/test/repo.git", "/tmp/test")
+        result: bool = metric._clone_repository(
+            "https://github.com/test/repo.git",
+            "/tmp/test"
+        )
 
         assert result is False
 
     @patch('src.metrics.CodeQualityMetric.Path')
-    def test_count_test_files(self, mock_path: MagicMock, metric: CodeQualityMetric) -> None:
+    def test_count_test_files(
+        self, mock_path: MagicMock, metric: CodeQualityMetric
+    ) -> None:
         logger.info("Testing test file counting...")
         mock_repo: MagicMock = MagicMock()
         mock_path.return_value = mock_repo
@@ -109,7 +129,9 @@ class TestCodeQualityMetric(BaseMetricTest):
         assert result == 4  # 3 + 1
 
     @patch('src.metrics.CodeQualityMetric.Path')
-    def test_count_source_files(self, mock_path: MagicMock, metric: CodeQualityMetric) -> None:
+    def test_count_source_files(
+        self, mock_path: MagicMock, metric: CodeQualityMetric
+    ) -> None:
         logger.info("Testing source file counting...")
         mock_repo: MagicMock = MagicMock()
         mock_path.return_value = mock_repo
@@ -128,7 +150,9 @@ class TestCodeQualityMetric(BaseMetricTest):
         assert result == 3  # main.py, utils.py, helper.py
 
     @patch('src.metrics.CodeQualityMetric.Path')
-    def test_documentation_all_files_present(self, mock_path: MagicMock, metric: CodeQualityMetric) -> None:
+    def test_documentation_all_files_present(
+        self, mock_path: MagicMock, metric: CodeQualityMetric
+    ) -> None:
         logger.info("Testing documentation evaluation with all files present...")
         mock_repo: MagicMock = MagicMock()
         mock_path.return_value = mock_repo
@@ -142,18 +166,20 @@ class TestCodeQualityMetric(BaseMetricTest):
             'CONTRIBUTING*': ['CONTRIBUTING.md'],
             'contributing*': []
         }
-        
+
         mock_repo.glob.side_effect = lambda pattern: patterns_map.get(pattern, [])
 
         result: float = metric._evaluate_documentation("/fake/path")
         assert result == 0.2  # 0.05 + 0.05 + 0.10
 
     @patch('src.metrics.CodeQualityMetric.Path')
-    def test_documentation_readme_only(self, mock_path: MagicMock, metric: CodeQualityMetric) -> None:
+    def test_documentation_readme_only(
+        self, mock_path: MagicMock, metric: CodeQualityMetric
+    ) -> None:
         logger.info("Testing documentation evaluation with README only...")
         mock_repo: MagicMock = MagicMock()
         mock_path.return_value = mock_repo
-        
+
         # Fix: Extract dictionary with explicit typing
         patterns_map: Dict[str, List[str]] = {
             'LICENSE*': [],
@@ -163,19 +189,21 @@ class TestCodeQualityMetric(BaseMetricTest):
             'CONTRIBUTING*': [],
             'contributing*': []
         }
-        
+
         mock_repo.glob.side_effect = lambda pattern: patterns_map.get(pattern, [])
-        
+
         result: float = metric._evaluate_documentation("/fake/path")
-        
+
         assert result == 0.05  # Only README
 
     @patch('src.metrics.CodeQualityMetric.Path')
-    def test_documentation_no_files(self, mock_path: MagicMock, metric: CodeQualityMetric) -> None:
+    def test_documentation_no_files(
+        self, mock_path: MagicMock, metric: CodeQualityMetric
+    ) -> None:
         logger.info("Testing documentation evaluation with no files...")
         mock_repo: MagicMock = MagicMock()
         mock_path.return_value = mock_repo
-        
+
         # Fix: Same pattern for consistency
         patterns_map: Dict[str, List[str]] = {
             'LICENSE*': [],
@@ -185,11 +213,11 @@ class TestCodeQualityMetric(BaseMetricTest):
             'CONTRIBUTING*': [],
             'contributing*': []
         }
-        
+
         mock_repo.glob.side_effect = lambda pattern: patterns_map.get(pattern, [])
-        
+
         result: float = metric._evaluate_documentation("/fake/path")
-        
+
         assert result == 0.0  # No files
 
     @pytest.mark.parametrize("stars,forks,expected", [
@@ -214,7 +242,7 @@ class TestCodeQualityMetric(BaseMetricTest):
             "forks_count": forks,
             "avg_daily_commits_30d": 0
         }
-        
+
         result: float = metric.evaluate(model)
         assert result == pytest.approx(expected, abs=0.01)
 
@@ -266,15 +294,15 @@ class TestCodeQualityMetric(BaseMetricTest):
             'license*': [],
             'contributing*': []
         }
-        
+
         mock_repo.glob.side_effect = lambda pattern: patterns_map.get(pattern, [])
-        
+
         mock_repo.rglob.return_value = [
             MagicMock(parts=['src', 'main.py']),
             MagicMock(parts=['src', 'utils.py'])
         ]
-        
+
         result: float = metric.evaluate(model_with_clone_url)
-        
+
         # Expected: 0.04 (popularity) + 0.05 (commits) + 0.3 (test) + 0.1 (doc) = 0.49
         assert result == pytest.approx(0.49, abs=0.01)
