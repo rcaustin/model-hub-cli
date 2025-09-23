@@ -6,7 +6,7 @@ VENV_DIR=".venv"
 VENV_PYTHON="$VENV_DIR/bin/python3"
 
 function print_usage {
-  echo "Usage: ./run.sh install | test | /absolute/path/to/file"
+  echo "Usage: ./run install | test | /absolute/path/to/file"
 }
 
 function run_install {
@@ -19,6 +19,8 @@ function run_test {
     exit 1
   fi
 
+  source $VENV_DIR/bin/activate
+
   "$VENV_PYTHON" -m coverage run -m pytest -v tests/ || true
   "$VENV_PYTHON" -m coverage report
 }
@@ -29,6 +31,8 @@ function run_program {
     echo "Error: Virtual environment not found. Run './run.sh install' first."
     exit 1
   fi
+
+  source $VENV_DIR/bin/activate
 
   "$VENV_PYTHON" -m src.commands.catalogue_runner "$file_path"
 }
