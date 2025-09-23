@@ -22,6 +22,7 @@ function run_install {
 
   # Create virtual environment
   echo "Creating virtual environment..."
+  rm -rf .venv
   python3 -m venv .venv
   if [ $? -ne 0 ]; then
     echo "ERROR: Failed to create virtual environment"
