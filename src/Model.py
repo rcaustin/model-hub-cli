@@ -78,28 +78,34 @@ class Model(ModelData):
         return "MODEL"
 
     def computeNetScore(self) -> float:
-        license_score = self.evaluations.get("LicenseMetric")
-        size_score = self.evaluations.get("SizeMetric")
-        rampup_score = self.evaluations.get("RampUpMetric")
-        bus_score = self.evaluations.get("BusFactorMetric")
-        avail_score = self.evaluations.get("AvailabilityMetric")
-        data_qual_score = self.evaluations.get("DatasetQualityMetric")
-        code_qual_score = self.evaluations.get("CodeQualityMetric")
-        perf_score = self.evaluations.get("PerformanceClaimsMetric")
+        def safe_score(key: str) -> float:
+            val = self.evaluations.get(key)
+            if key == "SizeMetric":
+                # Only accept dict for SizeMetric, else 0.0
+                if isinstance(val, dict) and val:
+                    return sum(val.values()) / len(val)
+                else:
+                    return 0.0
+            else:
+                if isinstance(val, dict):
+                    return sum(val.values()) / len(val) if val else 0.0
+                return val if val is not None else 0.0
+
+        license_score = safe_score("LicenseMetric")
 
         weighted_sum = (
-            0.2 * sum(size_score.values()) / len(size_score) if size_score else 0.0 +
-            0.3 * rampup_score +
-            0.1 * bus_score +
-            0.1 * avail_score +
-            0.1 * data_qual_score +
-            0.1 * code_qual_score +
-            0.1 * perf_score
+            0.2 * safe_score("SizeMetric") +
+            0.3 * safe_score("RampUpMetric") +
+            0.1 * safe_score("BusFactorMetric") +
+            0.1 * safe_score("AvailabilityMetric") +
+            0.1 * safe_score("DatasetQualityMetric") +
+            0.1 * safe_score("CodeQualityMetric") +
+            0.1 * safe_score("PerformanceClaimsMetric")
         )
 
         net_score = license_score * weighted_sum
 
         self.evaluations["NetScore"] = net_score
-        self.evaluationsLatency["NetScore"] = 0.0  # Derived metric
+        self.evaluationsLatency["NetScore"] = 0.0  # Derived metric, no latency
 
         return round(net_score, 2)
