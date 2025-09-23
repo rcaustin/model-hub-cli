@@ -73,14 +73,7 @@ class Model(ModelData):
         self.evaluationsLatency[metric_name] = end - start
 
     def getCategory(self) -> str:
-        categories = []
-        if self.modelLink:
-            categories.append("MODEL")
-        if self.datasetLink:
-            categories.append("DATASET")
-        if self.codeLink:
-            categories.append("CODE")
-        return f"[{', '.join(categories)}]"
+        return "MODEL"
 
     def computeNetScore(self) -> float:
         license_score = self.get_score("LicenseMetric")
