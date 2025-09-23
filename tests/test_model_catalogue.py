@@ -1,5 +1,7 @@
 import json
 
+from unittest.mock import MagicMock
+
 from src.Metric import Metric
 from src.Model import Model
 from src.ModelCatalogue import ModelCatalogue
@@ -23,10 +25,15 @@ class StubMetric2(StubMetric):
     pass
 
 
-class DictMetric(Metric):
-    """Metric that returns a dictionary with an 'average' key."""
+class StubSizeMetric(Metric):
+    """Stub metric simulating SizeMetric device-specific scores."""
     def evaluate(self, model: Model) -> dict[str, float]:
-        return {"average": 0.75, "other": 0.9}
+        return {
+            "raspberry_pi": 0.6,
+            "jetson_nano": 0.6,
+            "desktop_pc": 0.8,
+            "aws_server": 0.8
+        }
 
 
 def test_add_model_adds_to_internal_list(sample_model):
@@ -40,8 +47,8 @@ def test_add_model_adds_to_internal_list(sample_model):
 
 def test_evaluate_models_runs_all_metrics(sample_model):
     catalogue = ModelCatalogue()
+    sample_model.computeNetScore = MagicMock()
 
-    # Override the default metrics with two stubs
     catalogue.metrics = [
         StubMetric1("StubMetric1", 0.3),
         StubMetric2("StubMetric2", 0.7)
@@ -53,13 +60,16 @@ def test_evaluate_models_runs_all_metrics(sample_model):
     model = catalogue.models[0]
     assert "StubMetric1" in model.evaluations
     assert "StubMetric2" in model.evaluations
-    assert "NetScore" in model.evaluations
+    sample_model.computeNetScore.assert_called_once()
 
 
 def test_generate_report_format(sample_model):
     catalogue = ModelCatalogue()
 
-    # Override metrics with predictable output
+    # Mock computeNetScore to avoid needing full metrics
+    sample_model.computeNetScore = MagicMock(return_value=0.42)
+
+    # Use predictable stub metrics
     catalogue.metrics = [
         StubMetric("LicenseMetric", 1.0),
         StubMetric("BusFactorMetric", 0.8),
@@ -68,21 +78,20 @@ def test_generate_report_format(sample_model):
         StubMetric("DatasetQualityMetric", 0.6),
         StubMetric("CodeQualityMetric", 0.65),
         StubMetric("PerformanceClaimsMetric", 0.55),
-        DictMetric(),  # SizeMetric returning {"average": 0.75, ...}
+        StubSizeMetric()  # returns dict
     ]
 
     catalogue.addModel(sample_model)
     catalogue.evaluateModels()
     report = catalogue.generateReport()
 
-    # Each line should be a single valid JSON object (1 model = 1 line)
+    # Validate NDJSON format
     lines = report.strip().splitlines()
-    assert len(lines) == 1  # Only one model added
+    assert len(lines) == 1
 
     model_json = json.loads(lines[0])
     assert isinstance(model_json, dict)
 
-    # Ensure all expected keys are present in the JSON output
     expected_keys = {
         "name", "category", "net_score", "net_score_latency",
         "ramp_up_time", "ramp_up_time_latency",
@@ -98,3 +107,13 @@ def test_generate_report_format(sample_model):
     assert expected_keys.issubset(model_json.keys()), (
         f"Missing keys: {expected_keys - model_json.keys()}"
     )
+
+
+def test_get_model_ndjson_defaults(sample_model):
+    catalogue = ModelCatalogue()
+    ndjson_str = catalogue.getModelNDJSON(sample_model)
+    data = json.loads(ndjson_str)
+
+    assert isinstance(data["net_score"], float)
+    assert isinstance(data["net_score_latency"], int)
+    assert isinstance(data["size_score"], dict)
