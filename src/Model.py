@@ -50,7 +50,7 @@ class Model(ModelData):
 
     def getScore(
         self, metric_name: str, default: float = 0.0
-    ) -> float | Dict[str, float]:
+    ) -> Union[float, dict[str, float]]:
         value = self.evaluations.get(metric_name, default)
         if isinstance(value, dict):
             return {k: round(v, 2) for k, v in value.items()}
