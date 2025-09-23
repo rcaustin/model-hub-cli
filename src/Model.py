@@ -48,13 +48,15 @@ class Model(ModelData):
             self._github_metadata = fetcher.fetch_metadata(self.codeLink)
         return self._github_metadata
 
-    def get_score(self, metric_name: str, default: float = 0.0) -> float:
+    def getScore(
+        self, metric_name: str, default: float = 0.0
+    ) -> float | dict[str, float]:
         value = self.evaluations.get(metric_name, default)
         if isinstance(value, dict):
-            return value.get("average", default)
-        return value
+            return {k: round(v, 2) for k, v in value.items()}
+        return round(value, 2)
 
-    def get_latency(self, metric_name: str) -> int:
+    def getLatency(self, metric_name: str) -> int:
         latency = self.evaluationsLatency.get(metric_name, 0.0)
         return int(latency * 1000)
 
@@ -76,17 +78,17 @@ class Model(ModelData):
         return "MODEL"
 
     def computeNetScore(self) -> float:
-        license_score = self.get_score("LicenseMetric")
-        size_score = self.get_score("SizeMetric")
-        rampup_score = self.get_score("RampUpMetric")
-        bus_score = self.get_score("BusFactorMetric")
-        avail_score = self.get_score("AvailabilityMetric")
-        data_qual_score = self.get_score("DatasetQualityMetric")
-        code_qual_score = self.get_score("CodeQualityMetric")
-        perf_score = self.get_score("PerformanceClaimsMetric")
+        license_score = self.evaluations.get("LicenseMetric")
+        size_score = self.evaluations.get("SizeMetric")
+        rampup_score = self.evaluations.get("RampUpMetric")
+        bus_score = self.evaluations.get("BusFactorMetric")
+        avail_score = self.evaluations.get("AvailabilityMetric")
+        data_qual_score = self.evaluations.get("DatasetQualityMetric")
+        code_qual_score = self.evaluations.get("CodeQualityMetric")
+        perf_score = self.evaluations.get("PerformanceClaimsMetric")
 
         weighted_sum = (
-            0.2 * size_score +
+            0.2 * sum(size_score.values()) / len(size_score) if size_score else 0.0 +
             0.3 * rampup_score +
             0.1 * bus_score +
             0.1 * avail_score +
@@ -100,4 +102,4 @@ class Model(ModelData):
         self.evaluations["NetScore"] = net_score
         self.evaluationsLatency["NetScore"] = 0.0  # Derived metric
 
-        return net_score
+        return round(net_score, 2)
