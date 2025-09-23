@@ -15,5 +15,7 @@ logs/
 # Autograder Scripts
 .autograder
 
-# Input Test
-.test.txt
+# I/O Test Files
+.input
+.output
+.test

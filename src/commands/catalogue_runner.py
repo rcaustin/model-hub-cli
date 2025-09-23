@@ -7,7 +7,7 @@ from src.ModelCatalogue import ModelCatalogue
 
 # Configure loguru
 logger.remove()  # Remove default logger
-logger.add(sys.stderr, level="INFO")  # Console
+logger.add(sys.stderr, level="ERROR")  # Console
 logger.add("logs/run.log", rotation="1 MB", level="DEBUG")  # Log file
 
 
