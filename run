@@ -44,8 +44,8 @@ function run_install {
   #fi
 
   # Upgrade pip
-  echo "Upgrading pip..."
-  python -m pip install --upgrade pip
+  #echo "Upgrading pip..."
+  #python -m pip install --upgrade pip
 
   # Install dependencies
   echo "Installing dependencies..."
