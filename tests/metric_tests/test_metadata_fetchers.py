@@ -67,7 +67,12 @@ def test_github_fetcher_success():
     commit_response = MagicMock(ok=True)
     commit_response.json.return_value = [{}]*150  # 150 commits in last 30 days
 
-    session.get.side_effect = [contrib_response, license_response, repo_response, commit_response]
+    session.get.side_effect = [
+        contrib_response,
+        license_response,
+        repo_response,
+        commit_response
+    ]
 
     fetcher = GitHubFetcher(session=session)
     url = "https://github.com/org/repo"
@@ -126,7 +131,12 @@ def test_github_fetcher_partial_failure():
     commit_response = MagicMock(ok=True)
     commit_response.json.return_value = [{}]*150  # 150 commits in last 30 days
 
-    session.get.side_effect = [contrib_response, license_response, repo_response, commit_response]
+    session.get.side_effect = [
+        contrib_response,
+        license_response,
+        repo_response,
+        commit_response
+    ]
 
     fetcher = GitHubFetcher(session=session)
     metadata = fetcher.fetch_metadata("https://github.com/org/repo")
