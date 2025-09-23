@@ -14,3 +14,6 @@ logs/
 
 # Autograder Scripts
 .autograder
+
+# Input Test
+.test.txt
