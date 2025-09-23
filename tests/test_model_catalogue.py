@@ -93,7 +93,7 @@ def test_generate_report_format(sample_model):
     assert isinstance(model_json, dict)
 
     expected_keys = {
-        "name", "category", "netscore", "netscore_latency",
+        "name", "category", "net_score", "net_score_latency",
         "ramp_up_time", "ramp_up_time_latency",
         "bus_factor", "bus_factor_latency",
         "performance_claims", "performance_claims_latency",
@@ -114,6 +114,6 @@ def test_get_model_ndjson_defaults(sample_model):
     ndjson_str = catalogue.getModelNDJSON(sample_model)
     data = json.loads(ndjson_str)
 
-    assert isinstance(data["netscore"], float)
-    assert isinstance(data["netscore_latency"], int)
+    assert isinstance(data["net_score"], float)
+    assert isinstance(data["net_score_latency"], int)
     assert isinstance(data["size_score"], dict)

@@ -53,8 +53,8 @@ class ModelCatalogue:
         ndjson_obj = {
             "name": model.name,
             "category": model.getCategory(),
-            "netscore": model.getScore("NetScore"),
-            "netscore_latency": model.getLatency("NetScore"),
+            "net_score": model.getScore("NetScore"),
+            "net_score_latency": model.getLatency("NetScore"),
             "ramp_up_time": model.getScore("RampUpMetric"),
             "ramp_up_time_latency": model.getLatency("RampUpMetric"),
             "bus_factor": model.getScore("BusFactorMetric"),
