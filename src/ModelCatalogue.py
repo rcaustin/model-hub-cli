@@ -4,6 +4,8 @@ from loguru import logger
 
 from src.Metric import Metric
 from src.metrics.LicenseMetric import LicenseMetric
+from src.metrics.AvailabilityMetric import AvailabilityMetric
+from src.metrics.PerformanceClaimsMetric import PerformanceClaimsMetric
 from src.Model import Model
 
 
@@ -15,7 +17,9 @@ class ModelCatalogue:
     def __init__(self):
         self.models: list[Model] = []
         self.metrics: list[Metric] = [
-            LicenseMetric()
+            LicenseMetric(),
+            AvailabilityMetric(),
+            PerformanceClaimsMetric()
         ]
 
     def addModel(self, model: Model):
