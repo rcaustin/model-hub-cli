@@ -70,4 +70,4 @@ class ModelCatalogue:
         }
 
         # Convert dictionary to NDJSON (one key-value pair per line)
-        return json.dumps(ndjson_obj)
+        return json.dumps(ndjson_obj, separators=(",", ":"))
