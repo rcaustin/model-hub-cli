@@ -78,9 +78,13 @@ def configure_logging():
         return  # Silent -- No Logging
 
     if log_file:
-        logger.add(log_file, rotation="1 MB", level=log_level)
+        try:
+            logger.add(log_file, rotation="1 MB", level=log_level)
+        except Exception as e:
+            print(f"Failed to configure log file '{log_file}': {e}")
+            exit(1)
     else:
-        return
+        logger.add(sys.stderr, leve=log_level)
 
 
 if __name__ == "__main__":
