@@ -8,3 +8,15 @@ __pycache__/
 
 # Logs
 logs/
+
+# Testing
+.coverage
+.results.xml
+
+# Autograder Scripts
+.autograder
+
+# I/O Test Files
+.input
+.output
+.test

@@ -38,7 +38,7 @@ class LicenseMetric(Metric):
         Returns:
             float: Score from 0.0 (incompatible) to 1.0 (fully compatible).
         """
-        logger.info("Evaluating LicenseMetric...")
+        logger.debug("Evaluating LicenseMetric...")
         license_id = None
 
         # Step 1: Try HuggingFace metadata
@@ -59,11 +59,11 @@ class LicenseMetric(Metric):
             gh_meta = model.github_metadata
             if gh_meta:
                 license_info = gh_meta if isinstance(gh_meta, dict) else {}
-                license_id = license_info.get("license", {}).get("spdx_id")
+                license_id = license_info.get("license", "")
                 if license_id:
                     logger.debug("License found in GitHub metadata: {}", license_id)
 
         # Step 3: Map license to score
         license_score = self.LICENSE_COMPATIBILITY.get(license_id, 0.5)
-        logger.info("LicenseMetric: {} -> {}", license_id or "UNKNOWN", license_score)
+        logger.debug("LicenseMetric: {} -> {}", license_id or "UNKNOWN", license_score)
         return license_score
