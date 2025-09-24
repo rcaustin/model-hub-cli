@@ -32,7 +32,10 @@ class Model(ModelData):
 
     @property
     def name(self) -> str:
-        return self.hf_metadata.get("id", "").split("/")[1]
+        try:
+            return self.hf_metadata.get("id", "").split("/")[1]
+        except (AttributeError, IndexError):
+            return "UNKNOWN_MODEL"
 
     @property
     def hf_metadata(self) -> Optional[Dict[str, Any]]:
