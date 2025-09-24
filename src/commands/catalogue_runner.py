@@ -5,11 +5,6 @@ from loguru import logger
 from src.Model import Model
 from src.ModelCatalogue import ModelCatalogue
 
-# Configure loguru
-logger.remove()  # Remove default logger
-logger.add(sys.stderr, level="ERROR")  # Console
-logger.add("logs/run.log", rotation="1 MB", level="DEBUG")  # Log file
-
 
 def run_catalogue(file_path: str) -> int:
     """
@@ -32,7 +27,7 @@ def run_catalogue(file_path: str) -> int:
             for line_num, line in enumerate(f, 1):
                 line = line.strip()
                 if not line:
-                    logger.warning(f"Skipping empty line{line_num}")
+                    logger.warning(f"Skipping empty line {line_num}")
                     continue
 
                 parts = [part.strip() for part in line.split(',')]
@@ -68,6 +63,28 @@ def run_catalogue(file_path: str) -> int:
     print(catalogue.generateReport())
     return 0 if success else 1
 
+def configure_logging():
+    logger.remove()
+    log_level_env = os.getenv("LOG_LEVEL", "0").strip()
+    log_file = os.getenv("LOG_FILE", "").strip()
+
+    if log_level_env == "2":
+        log_level = "DEBUG"
+    elif log_level_env == "1":
+        log_level = "INFO"
+    else:
+        return # Silent -- No Logging
+    
+    if log_file:
+        logger.add(log_file, rotation="1 MB", level=log_level)
+    else:
+        # Default Log File (Should it default to console, or no logging?)
+        logger.add("logs/run.log", rotation="1 MB", level="DEBUG")
+
 
 if __name__ == "__main__":
-    run_catalogue(sys.argv[1])
+    configure_logging()
+    if len(sys.argv) < 2:
+        print("Usage: run <absolute_path_to_input_file>")
+        sys.exit(1)
+    sys.exit(run_catalogue(sys.argv[1]))
