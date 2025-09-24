@@ -147,11 +147,8 @@ def test_compute_net_score_all_metrics_present(sample_urls):
     )
 
     expected_score = round(1.0 * expected_weighted, 2)
+    model.computeNetScore()
 
-    result = model.computeNetScore()
-
-    assert result == expected_score
-    # Allow slight floating point differences for stored value
     assert abs(model.evaluations["NetScore"] - expected_score) < 1e-6
 
 
@@ -174,9 +171,8 @@ def test_compute_net_score_missing_license_returns_zero(sample_urls):
         "PerformanceClaimsMetric": 0.5
     }
 
-    result = model.computeNetScore()
+    model.computeNetScore()
 
-    assert result == 0.0
     assert model.evaluations["NetScore"] == 0.0
     assert model.evaluationsLatency["NetScore"] == 0.0
 
@@ -207,10 +203,8 @@ def test_compute_net_score_handles_missing_metrics_as_zero(sample_urls):
     )
 
     expected_score = round(1.0 * expected_weighted, 2)
+    model.computeNetScore()
 
-    result = model.computeNetScore()
-
-    assert result == expected_score
     assert round(model.evaluations["NetScore"], 2) == expected_score
 
 
@@ -240,8 +234,6 @@ def test_compute_net_score_with_invalid_size_metric(sample_urls):
         0.1 * 0.5
     )
     expected_score = round(1.0 * expected_weighted, 2)
+    model.computeNetScore()
 
-    result = model.computeNetScore()
-
-    assert result == expected_score
     assert model.evaluations["NetScore"] == expected_score

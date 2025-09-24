@@ -80,7 +80,7 @@ class Model(ModelData):
     def getCategory(self) -> str:
         return "MODEL"
 
-    def computeNetScore(self) -> float:
+    def computeNetScore(self) -> None:
         def safe_score(key: str) -> float:
             val = self.evaluations.get(key)
             if key == "SizeMetric":
@@ -110,5 +110,6 @@ class Model(ModelData):
 
         self.evaluations["NetScore"] = net_score
         self.evaluationsLatency["NetScore"] = 0.0  # Derived metric, no latency
-
-        return round(net_score, 2)
+        self.evaluationsLatency["NetScore"] = sum(
+            latency for key, latency in self.evaluationsLatency.items() if key != "NetScore"
+        )
