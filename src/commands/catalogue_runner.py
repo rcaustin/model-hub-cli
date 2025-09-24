@@ -1,3 +1,4 @@
+import os
 import sys
 
 from loguru import logger
@@ -63,6 +64,7 @@ def run_catalogue(file_path: str) -> int:
     print(catalogue.generateReport())
     return 0 if success else 1
 
+
 def configure_logging():
     logger.remove()
     log_level_env = os.getenv("LOG_LEVEL", "0").strip()
@@ -73,8 +75,8 @@ def configure_logging():
     elif log_level_env == "1":
         log_level = "INFO"
     else:
-        return # Silent -- No Logging
-    
+        return  # Silent -- No Logging
+
     if log_file:
         logger.add(log_file, rotation="1 MB", level=log_level)
     else:
