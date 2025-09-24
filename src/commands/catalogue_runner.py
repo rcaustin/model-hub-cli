@@ -80,8 +80,7 @@ def configure_logging():
     if log_file:
         logger.add(log_file, rotation="1 MB", level=log_level)
     else:
-        # Default Log File (Should it default to console, or no logging?)
-        logger.add("logs/run.log", rotation="1 MB", level="DEBUG")
+        return
 
 
 if __name__ == "__main__":
