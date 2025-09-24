@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+
+set -e
+
+PYTHON="python3"
+
+function print_usage {
+  echo "Usage: ./run install | test | /absolute/path/to/file"
+}
+
+function run_install {
+  #bash setup.sh
+  echo "Setting up model-hub-cli environment..."
+
+  # Check if Python is available
+  if ! command -v $PYTHON &> /dev/null; then
+    echo "ERROR: Python3 is not installed or not in PATH"
+    echo "Please install Python 3.8+ and try again"
+    exit 1
+  fi
+
+  # Install dependencies
+  echo "Installing dependencies..."
+  pip install -r requirements.txt
+  if [ $? -ne 0 ]; then
+    echo "ERROR: Failed to install dependencies"
+    exit 1
+  fi
+
+  echo ""
+  echo "✅ Setup complete!"
+  echo "To run the application, use: ./run [command]"
+}
+
+function run_test {
+  # Run tests quietly with junitxml output
+  pytest --tb=short -q --junitxml=.results.xml > /dev/null
+
+  # Parse results.xml for test stats using grep + regex
+  TOTAL=$(grep -oP 'tests="\K[0-9]+' .results.xml)
+  FAILURES=$(grep -oP 'failures="\K[0-9]+' .results.xml)
+  ERRORS=$(grep -oP 'errors="\K[0-9]+' .results.xml)
+  SKIPPED=$(grep -oP 'skipped="\K[0-9]+' .results.xml)
+  PASSED=$((TOTAL - FAILURES - ERRORS - SKIPPED))
+
+  # Run coverage measurement quietly
+  coverage run -m pytest > /dev/null 2>&1
+
+  # Extract coverage percent from coverage report summary line
+  COVERAGE_LINE=$(coverage report | tail -1)
+  COVERAGE_PERCENT=$(echo "$COVERAGE_LINE" | awk '{print $NF}' | tr -d '%')
+
+  # Output single line
+  echo "${PASSED}/${TOTAL} test cases passed. ${COVERAGE_PERCENT}% line coverage achieved."
+}
+
+function run_test_verbose {
+  echo "Running test suite..."
+  $PYTHON -m coverage run -m pytest tests/
+  $PYTHON -m coverage report
+}
+
+function run_program {
+  local file_path="$1"
+  "$PYTHON" -m src.commands.catalogue_runner "$file_path"
+}
+
+# ---- Main ----
+
+if [ $# -ne 1 ]; then
+  print_usage
+  exit 1
+fi
+
+ARG="$1"
+
+case "$ARG" in
+  install)
+    run_install
+    ;;
+  test)
+    run_test
+    ;;
+  testall)
+    run_test_verbose
+    ;;
+  /*)
+    run_program "$ARG"
+    ;;
+  *)
+    print_usage
+    exit 1
+    ;;
+esac
+

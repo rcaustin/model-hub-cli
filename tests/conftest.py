@@ -3,9 +3,11 @@ Pytest configuration and reusable fixtures for model-hub-cli tests.
 """
 
 from dataclasses import dataclass
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 
 import pytest
+
+from src.Model import Model
 
 
 @dataclass
@@ -40,6 +42,17 @@ class StubModelData:
         """Setter for GitHub metadata."""
         self._github_metadata = value
 
+    _hf_metadata: Optional[Dict[str, Any]] = None
+    _github_metadata: Optional[Dict[str, Any]] = None
+
+    @property
+    def hf_metadata(self) -> Optional[Dict[str, Any]]:
+        return self._hf_metadata
+
+    @property
+    def github_metadata(self) -> Optional[Dict[str, Any]]:
+        return self._github_metadata
+
 
 @pytest.fixture
 def base_model() -> StubModelData:
@@ -52,6 +65,15 @@ def base_model() -> StubModelData:
         codeLink="https://github.com/huggingface/transformers",
         datasetLink="https://huggingface.co/datasets/squad"
     )
+
+
+@pytest.fixture
+def sample_model(sample_urls) -> Model:
+    """
+    Fixture that returns a Model instance created from sample URLs.
+    Used as a baseline test model for testing Model-related functionality.
+    """
+    return Model(sample_urls)
 
 
 @pytest.fixture
