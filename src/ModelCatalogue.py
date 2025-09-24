@@ -22,7 +22,7 @@ class ModelCatalogue:
         self.metrics: list[Metric] = [
             LicenseMetric(),
             AvailabilityMetric(),
-            PerformanceClaimsMetric()
+            PerformanceClaimsMetric(),
             BusFactorMetric(),
             SizeMetric(),
             CodeQualityMetric()
