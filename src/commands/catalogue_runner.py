@@ -101,6 +101,13 @@ def configure_logging():
 
         # Try opening the file for writing (sometimes won't raise until write a log)
         try:
+            with open(log_file, 'a'):
+                pass  # Just checking if it's writable
+        except Exception as e:
+            print(f"Cannot write to LOG_FILE '{log_file}': {e}")
+            exit(1)
+
+        try:
             logger.add(log_file, rotation="1 MB", level=log_level)
         except Exception as e:
             print(f"Failed to configure log file '{log_file}': {e}")
