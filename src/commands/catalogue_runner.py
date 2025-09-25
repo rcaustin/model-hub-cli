@@ -78,42 +78,16 @@ def configure_logging():
         return  # Silent -- No Logging
 
     if log_file:
-        # Path is not a directory
-        if os.path.isdir(log_file):
-            print(f"LOG_FILE points to a directory, not a file: {log_file}")
-            exit(1)
-
-        # Parent directory exists
-        log_dir = os.path.dirname(log_file) or "."
-        if not os.path.exists(log_dir):
-            print(f"Directory does not exist for LOG_FILE: {log_dir}")
-            exit(1)
-
-        # Parent directory is writable
-        if not os.access(log_dir, os.W_OK):
-            print(f"Cannot write to directory for LOG_FILE: {log_dir}")
-            exit(1)
-
-        # File is writable (if it already exists)
-        if os.path.exists(log_file) and not os.access(log_file, os.W_OK):
-            print(f"LOG_FILE exists but is not writable: {log_file}")
-            exit(1)
-
-        # Try opening the file for writing (sometimes won't raise until write a log)
         try:
-            with open(log_file, 'a'):
-                pass  # Just checking if it's writable
-        except Exception as e:
-            print(f"Cannot write to LOG_FILE '{log_file}': {e}")
-            exit(1)
-
-        try:
+            if not os.path.exists(log_file):
+                print(f"Log file does not exist: '{log_file}'")
+                sys.exit(1)
             logger.add(log_file, rotation="1 MB", level=log_level)
         except Exception as e:
             print(f"Failed to configure log file '{log_file}': {e}")
             exit(1)
     else:
-        logger.add(sys.stderr, leve=log_level)
+        logger.add(sys.stderr, level=log_level)
 
 
 if __name__ == "__main__":
