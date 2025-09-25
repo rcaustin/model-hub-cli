@@ -9,6 +9,7 @@ from src.metrics.CodeQualityMetric import CodeQualityMetric
 from src.metrics.DatasetQualityMetric import DatasetQualityMetric
 from src.metrics.LicenseMetric import LicenseMetric
 from src.metrics.PerformanceClaimsMetric import PerformanceClaimsMetric
+from src.metrics.RampUpMetric import RampUpMetric
 from src.metrics.SizeMetric import SizeMetric
 from src.Model import Model
 
@@ -27,7 +28,8 @@ class ModelCatalogue:
             BusFactorMetric(),
             SizeMetric(),
             CodeQualityMetric(),
-            DatasetQualityMetric()
+            DatasetQualityMetric(),
+            RampUpMetric()
         ]
 
     def addModel(self, model: Model):
