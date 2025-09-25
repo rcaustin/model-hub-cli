@@ -1,9 +1,10 @@
-from src.Interfaces import ModelData
-from src.Metric import Metric
-from loguru import logger
-
 import re
 from typing import Optional
+
+from loguru import logger
+
+from src.Interfaces import ModelData
+from src.Metric import Metric
 
 try:
     from huggingface_hub import HfApi, hf_hub_download
@@ -60,13 +61,17 @@ class RampUpMetric(Metric):
         # README hints
         readme_hit = bool(re.search(r"\bdataset(s)?\b", readme, flags=re.I)) or \
                      bool(re.search(r"\btrained\s+on\b", readme, flags=re.I)) or \
-                     bool(re.search(r"\bdata\s+(source|collection)\b", readme, flags=re.I))
+                     bool(
+                        re.search(r"\bdata\s+(source|collection)\b", readme, flags=re.I)
+                    )
         # model_index.json hints
         idx_hit = False
         if model_index_json:
-            idx_hit = bool(re.search(r'"dataset(s)?"\s*:', model_index_json, flags=re.I)) or \
-                      bool(re.search(r'"trained_on"\s*:', model_index_json, flags=re.I)) or \
-                      bool(re.search(r'"evaluation"\s*:', model_index_json, flags=re.I))
+            idx_hit = (
+                bool(re.search(r'"dataset(s)?"\s*:', model_index_json, flags=re.I)) or
+                bool(re.search(r'"trained_on"\s*:', model_index_json, flags=re.I)) or
+                bool(re.search(r'"evaluation"\s*:', model_index_json, flags=re.I))
+            )
         return readme_hit or idx_hit
 
     @staticmethod
@@ -96,7 +101,9 @@ class RampUpMetric(Metric):
             return 0.0
 
         if HfApi is None or hf_hub_download is None:
-            logger.error("RampUpMetric: huggingface_hub not installed (`pip install huggingface_hub`).")
+            logger.error(
+                "RampUpMetric: huggingface_hub not installed."
+            )
             return 0.0
 
         api = HfApi()
@@ -115,7 +122,9 @@ class RampUpMetric(Metric):
         try:
             files = api.list_repo_files(repo_id=repo_id, repo_type="model") or []
             if "model_index.json" in files:
-                fp = hf_hub_download(repo_id=repo_id, filename="model_index.json", repo_type="model")
+                fp = hf_hub_download(
+                    repo_id=repo_id, filename="model_index.json", repo_type="model"
+                )
                 try:
                     with open(fp, "r", encoding="utf-8", errors="ignore") as f:
                         model_index_text = f.read()
@@ -128,7 +137,9 @@ class RampUpMetric(Metric):
 
         # If neither README nor model_index.json exists, short-circuit to 0.0
         if not readme_md and not model_index_text:
-            logger.debug(f"RampUpMetric: {repo_id} has neither README.md nor model_index.json → score 0.0")
+            logger.debug(
+                f"RampUpMetric: {repo_id} has no README or model_index.json → score 0.0"
+            )
             return 0.0
 
         # Checklist booleans
@@ -148,7 +159,8 @@ class RampUpMetric(Metric):
         )
 
         logger.debug(
-            "RampUpMetric: repo={repo} score={score:.2f} | README={readme} install={install} "
+            "RampUpMetric: repo={repo} score={score:.2f} "
+            " | README={readme} install={install} "
             "usage={usage} dataset={dataset} training={training}",
             repo=repo_id,
             score=score,

@@ -1,10 +1,11 @@
-from src.Interfaces import ModelData
-from src.Metric import Metric
-from loguru import logger
-
 import math
 import re
-from typing import Dict, Any, Tuple, Optional
+from typing import Dict, Tuple
+
+from loguru import logger
+
+from src.Interfaces import ModelData
+from src.Metric import Metric
 
 try:
     from huggingface_hub import HfApi
@@ -36,7 +37,10 @@ class DatasetQualityMetric(Metric):
             ]
             text = (readme_md or "").lower()
             found = sum(1 for sec in sections if sec in text)
-            return _clamp01(found / len(sections)), {sec: (sec in text) for sec in sections}
+            return (
+                _clamp01(found / len(sections)),
+                {sec: (sec in text) for sec in sections}
+            )
 
         def _count_citations(md: str) -> int:
             patterns = [
@@ -49,9 +53,12 @@ class DatasetQualityMetric(Metric):
             return _clamp01(math.log10(x + 1.0) / denom) if x > 0 else 0.0
 
         # --- Resolve repo id ---
-        repo_id = getattr(model, "dataset_id", None) or getattr(model, "dataset_url", None)
+        repo_id = getattr(model, "dataset_id", None) or \
+            getattr(model, "dataset_url", None)
         if not repo_id:
-            logger.error("DatasetQualityMetric: No dataset id/url provided on ModelData")
+            logger.error(
+                "DatasetQualityMetric: No dataset id/url provided on ModelData"
+            )
             return 0.0
 
         if HfApi is None:
@@ -62,7 +69,9 @@ class DatasetQualityMetric(Metric):
         try:
             info = api.dataset_info(repo_id)
         except HfHubHTTPError as e:
-            logger.error(f"DatasetQualityMetric: failed to fetch dataset_info for {repo_id}: {e}")
+            logger.error(
+                f"DatasetQualityMetric: failed to fetch dataset_info for {repo_id}: {e}"
+            )
             return 0.0
 
         likes = getattr(info, "likes", 0) or 0
@@ -91,6 +100,7 @@ class DatasetQualityMetric(Metric):
         logger.debug(
             f"DatasetQualityMetric: repo={repo_id}, score={score:.3f}, "
             f"docs={docs_score:.2f}, cites={citations_score:.2f} ({cites}), "
-            f"likes={likes} ({likes_score:.2f}), downloads={downloads} ({downloads_score:.2f})"
+            f"likes={likes} ({likes_score:.2f}),\
+                downloads={downloads} ({downloads_score:.2f})"
         )
         return score
