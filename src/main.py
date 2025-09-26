@@ -90,6 +90,9 @@ def configure_logging():
 
 
 if __name__ == "__main__":
+    # Prevent huggingface_hub from printing to stdout
+    os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
+
     configure_logging()
     if len(sys.argv) < 2:
         print("Usage: run <absolute_path_to_input_file>")
