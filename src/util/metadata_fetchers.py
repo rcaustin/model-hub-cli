@@ -160,3 +160,47 @@ class GitHubFetcher(MetadataFetcher):
         except Exception as e:
             logger.exception(f"Exception while fetching GitHub metadata: {e}")
             return None
+
+
+class DatasetFetcher(MetadataFetcher):
+    """Fetch metadata from the Hugging Face Datasets API."""
+
+    def __init__(self, session: Optional[requests.Session] = None):
+        self.session = session or requests.Session()
+        self.BASE_API_URL = "https://huggingface.co/api/datasets"
+
+    def fetch_metadata(self, dataset_url: str) -> Optional[Dict[str, Any]]:
+        if not dataset_url:
+            logger.debug("No dataset URL provided to DatasetFetcher.")
+            return None
+
+        try:
+            parsed = urlparse(dataset_url)
+            if "huggingface.co" not in parsed.netloc:
+                logger.debug(f"DatasetFetcher received a non-Hugging Face URL: {dataset_url}")
+                return None
+
+            path_parts = parsed.path.strip("/").split("/")
+            if len(path_parts) < 3 or path_parts[0] != "datasets":
+                logger.warning(f"Malformed Hugging Face dataset URL: {dataset_url}")
+                return None
+
+            org, dataset_id = path_parts[1], path_parts[2]
+
+            api_url = f"{self.BASE_API_URL}/{org}/{dataset_id}"
+            logger.debug(f"Fetching Hugging Face dataset metadata from: {api_url}")
+
+            response = self.session.get(api_url, timeout=5)
+            if response.ok:
+                logger.debug(f"Hugging Face dataset metadata retrieved for '{dataset_id}'.")
+                return response.json()
+            else:
+                logger.warning(
+                    "Failed to retrieve Hugging Face dataset metadata (HTTP {}) for {}.",
+                    response.status_code,
+                    dataset_url
+                )
+        except Exception as e:
+            logger.exception(f"Exception while fetching Hugging Face dataset metadata: {e}")
+
+        return None

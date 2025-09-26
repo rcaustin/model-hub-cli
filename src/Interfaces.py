@@ -19,3 +19,9 @@ class ModelData(Protocol):
     def github_metadata(self) -> Optional[Dict[str, Any]]:
         """Cached GitHub metadata"""
         ...
+
+    @property
+    @abstractmethod
+    def dataset_metadata(self) -> Optional[Dict[str, Any]]:
+        """Cached Dataset metadata"""
+        ...

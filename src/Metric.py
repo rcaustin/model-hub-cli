@@ -1,7 +1,5 @@
 from abc import ABC, abstractmethod
 from typing import Union
-import requests
-
 from src.Interfaces import ModelData
 
 
