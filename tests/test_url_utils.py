@@ -115,3 +115,4 @@ def test_requires_model_third_slot():
         assert False, "expected ValueError"
     except ValueError as e:
         assert "Model URL" in str(e)
+

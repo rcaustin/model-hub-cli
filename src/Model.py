@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional, Union
 from src.Interfaces import ModelData
 from src.Metric import Metric
 from src.util.metadata_fetchers import GitHubFetcher, HuggingFaceFetcher, DatasetFetcher
-from src.util.url_utils import URLSet, classify_urls
+from src.util.url_utils import URLSet, classify_urls, parse_urls_by_position
 
 
 
@@ -21,8 +21,6 @@ class Model(ModelData):
         self,
         urls: List[str]
     ):
-        # Extract and Classify URLs
-        # urlset: URLSet = classify_urls(urls)
         # Positional parsing (code, dataset, model) -> URLSet(model, code, dataset)
         urlset: URLSet = parse_urls_by_position(urls)
         self.modelLink: str = urlset.model
@@ -34,6 +32,8 @@ class Model(ModelData):
         self._github_metadata: Optional[Dict[str, Any]] = None
         self._dataset_metadata: Optional[Dict[str, Any]] = None
 
+
+
         # Get GitHub token from environment (validated at startup)
         self._github_token: Optional[str] = os.getenv("GITHUB_TOKEN")
 
@@ -42,19 +42,105 @@ class Model(ModelData):
         Scores can be a float or a dictionary of floats for complex metrics.
         evaluationsLatency maps metric names to the time taken to compute them.
         """
+
+        # Metrics
         self.evaluations: dict[str, Union[float, dict[str, float]]] = {}
         self.evaluationsLatency: dict[str, float] = {}
 
-
-        # --- NEW: opportunistically infer missing links ---
-        # Only touch what is missing; keep explicit user-provided links authoritative.
+        # Fill missing links opportunistically
         if self.datasetLink is None:
-            self._maybe_fill_dataset_from_hf()
+            self._infer_missing_dataset_from_card()
 
         if self.codeLink is None:
-            self._maybe_fill_code_from_hf()
+            self._infer_missing_code_from_card()
 
 
+    # ---------------------- Inference helpers ----------------------
+    def _infer_missing_dataset_from_card(self) -> None:
+        """
+        If dataset URL is missing, try to infer it from the model's HF card.
+        1) Read hf_metadata["card_data"]["datasets"] (string | list[str|dict]).
+        2) Resolve each candidate name via the shared DATASET_NAME_TO_URL map.
+        3) If candidate looks like 'org/name', synthesize a HF dataset URL and cache it.
+        First success wins; otherwise leave None.
+        """
+        meta = self.hf_metadata
+        if not meta:
+            return
+
+        card_data = meta.get("card_data") or meta.get("cardData") or {}
+        raw = card_data.get("datasets")
+        if not raw:
+            return
+
+        # Normalize candidates to a list of strings
+        candidates: List[str] = []
+        if isinstance(raw, str):
+            candidates = [raw]
+        elif isinstance(raw, list):
+            for item in raw:
+                if isinstance(item, str):
+                    candidates.append(item)
+                elif isinstance(item, dict):
+                    val = item.get("id") or item.get("name")
+                    if isinstance(val, str):
+                        candidates.append(val)
+
+        for name in candidates:
+            key = name.strip().lower()
+
+            # 1) Known mapping?
+            mapped = Model.DATASET_NAME_TO_URL.get(key)
+            if mapped:
+                self.datasetLink = mapped
+                return
+
+            # 2) 'org/name' → synthesize HF URL and cache
+            if "/" in name and len(name.split("/", 1)) == 2:
+                org, ds = name.split("/", 1)
+                if org and ds:
+                    url = f"https://huggingface.co/datasets/{org}/{ds}"
+                    Model.DATASET_NAME_TO_URL[key] = url
+                    self.datasetLink = url
+                    return
+        # If nothing worked, leave None
+
+
+    def _infer_missing_code_from_card(self) -> None:
+        """
+        If code URL is missing, try to locate a GitHub-like link on the HF card.
+        Conservative: only set when we see an explicit URL.
+        """
+        meta = self.hf_metadata
+        if not meta:
+            return
+
+        cd = meta.get("card_data") or meta.get("cardData") or {}
+
+        # Explicit fields seen on some cards
+        explicit_repo_fields = ("repository", "github", "source_repo", "code_url")
+        for f in explicit_repo_fields:
+            v = cd.get(f)
+            if isinstance(v, str) and "github.com" in v:
+                self.codeLink = v
+                return
+
+        # Links array variants
+        links = cd.get("links")
+        if isinstance(links, list):
+            for entry in links:
+                if isinstance(entry, str) and "github.com" in entry:
+                    self.codeLink = entry
+                    return
+                if isinstance(entry, dict):
+                    u = entry.get("url") or entry.get("href")
+                    if isinstance(u, str) and "github.com" in u:
+                        self.codeLink = u
+                        return
+        # Else: leave None (graceful)
+
+    # ---------------------- Metadata properties ----------------------
+    
     @property
     def name(self) -> str:
         try:
