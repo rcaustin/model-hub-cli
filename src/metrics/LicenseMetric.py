@@ -1,3 +1,29 @@
+"""
+LicenseMetric.py
+================
+Assesses whether the code/model license is present and compatible with
+common redistribution/use scenarios.
+
+Inputs (from context)
+---------------------
+- code_repo.license: str | None
+- model_card.license: str | None (if available)
+
+Scoring (0–1)
+-------------
+- 1.0 : explicit, recognized permissive or weak-copyleft license (e.g., MIT,
+        BSD, Apache-2.0, MPL-2.0) with no conflicting clauses detected
+- 0.5 : license present but ambiguous/strong-copyleft for target use (e.g., GPL)
+- 0.0 : missing or custom/proprietary terms that block typical use
+
+Limitations
+-----------
+- License detection can be brittle; prefer SPDX identifiers when possible.
+- Multi-license or per-file licensing may need deeper inspection.
+"""
+
+
+
 from loguru import logger
 
 from src.Interfaces import ModelData

@@ -1,3 +1,32 @@
+"""
+PerformanceClaimsMetric.py
+==========================
+Looks for stated performance/evaluation claims and their traceability.
+
+Signals (examples)
+------------------
+- Benchmarks with dataset/task names and numbers
+- Links to evaluation scripts or reproducible notebooks
+- Comparison tables with baselines and metrics (accuracy, F1, WER, etc.)
+
+Inputs (from context)
+---------------------
+- model_card.card_text: str | None
+- code_repo README/docs text: str | None
+
+Scoring (0–1)
+-------------
+- 1.0 : claims + datasets + metrics + reproduction pointers
+- 0.5 : claims present but weak details (no dataset/metric names or no repro)
+- 0.0 : no claims detected
+
+Limitations
+-----------
+- Pure text search can miss image-only tables or PDFs.
+- Be conservative when evidence is thin or unverifiable.
+"""
+
+
 import re
 from typing import Any, Dict, List
 
