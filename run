@@ -62,7 +62,7 @@ function run_test_verbose {
 
 function run_program {
   local file_path="$1"
-  "$PYTHON" -m src.commands.catalogue_runner "$file_path"
+  "$PYTHON" -m src.main "$file_path"
 }
 
 # ---- Main ----

@@ -76,7 +76,9 @@ def test_configure_logging_log_file_exists(monkeypatch, tmp_path):
     assert any(h.levelno == 20 for h in handlers)  # INFO level
 
 
-def test_main_entrypoint_with_arg(tmp_path, mock_model_catalogue, mock_model, monkeypatch):
+def test_main_entrypoint_with_arg(
+    tmp_path, mock_model_catalogue, mock_model, monkeypatch
+):
     monkeypatch.setenv("LOG_LEVEL", "1")
     file_content = "url1,url2,url3\n"
     file_path = tmp_path / "input.txt"
