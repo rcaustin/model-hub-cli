@@ -35,6 +35,14 @@ class StubModelData:
     def github_metadata(self, value: Optional[Dict[str, Any]]):
         self._github_metadata = value
 
+    @property
+    def dataset_metadata(self) -> Optional[Dict[str, Any]]:
+        return self._dataset_metadata
+
+    @dataset_metadata.setter
+    def dataset_metadata(self, value: Optional[Dict[str, Any]]):
+        self._dataset_metadata = value
+
 
 @pytest.fixture
 def base_model() -> StubModelData:

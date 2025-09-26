@@ -1,5 +1,5 @@
 from unittest.mock import MagicMock
-from src.util.metadata_fetchers import HuggingFaceFetcher, GitHubFetcher
+from src.util.metadata_fetchers import HuggingFaceFetcher, GitHubFetcher, DatasetFetcher
 
 
 # HuggingFaceFetcher Tests
@@ -149,3 +149,77 @@ def test_github_fetcher_partial_failure():
         "avg_daily_commits_30d": 5
     }
     assert session.get.call_count == 4
+
+
+# DatasetFetcher Tests
+def test_dataset_fetcher_success():
+    session = MagicMock()
+    mock_response = MagicMock()
+    mock_response.ok = True
+    mock_response.json.return_value = {"id": "dataset-id", "downloads": 5000}
+    session.get.return_value = mock_response
+
+    fetcher = DatasetFetcher(session=session)
+    url = "https://huggingface.co/datasets/xlangai/AgentNet"
+    metadata = fetcher.fetch_metadata(url)
+
+    session.get.assert_called_once_with(
+        "https://huggingface.co/api/datasets/xlangai/AgentNet",
+        timeout=5
+    )
+    assert metadata == {"id": "dataset-id", "downloads": 5000}
+
+
+def test_dataset_fetcher_invalid_url():
+    session = MagicMock()
+    fetcher = DatasetFetcher(session=session)
+
+    # Missing datasets in path
+    metadata = fetcher.fetch_metadata("https://huggingface.co/xlangai/AgentNet")
+    assert metadata is None
+    session.get.assert_not_called()
+
+
+def test_dataset_fetcher_non_huggingface_url():
+    session = MagicMock()
+    fetcher = DatasetFetcher(session=session)
+
+    # Not a HuggingFace URL
+    metadata = fetcher.fetch_metadata("https://example.com/datasets/org/dataset")
+    assert metadata is None
+    session.get.assert_not_called()
+
+
+def test_dataset_fetcher_malformed_path():
+    session = MagicMock()
+    fetcher = DatasetFetcher(session=session)
+
+    # Path too short
+    metadata = fetcher.fetch_metadata("https://huggingface.co/datasets/org")
+    assert metadata is None
+    session.get.assert_not_called()
+
+
+def test_dataset_fetcher_http_failure():
+    session = MagicMock()
+    mock_response = MagicMock(ok=False, status_code=404)
+    session.get.return_value = mock_response
+
+    fetcher = DatasetFetcher(session=session)
+    metadata = fetcher.fetch_metadata("https://huggingface.co/datasets/org/dataset")
+
+    assert metadata is None
+    session.get.assert_called_once()
+
+
+def test_dataset_fetcher_no_url():
+    session = MagicMock()
+    fetcher = DatasetFetcher(session=session)
+
+    metadata = fetcher.fetch_metadata("")
+    assert metadata is None
+    session.get.assert_not_called()
+
+    metadata = fetcher.fetch_metadata(None)
+    assert metadata is None
+    session.get.assert_not_called()

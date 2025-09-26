@@ -2,7 +2,21 @@
 
 set -e
 
-PYTHON="python3"
+# Find an appropriate python interpreter
+# Priority: 1) venv python, 2) python3, 3) python
+# If none found, print error and exit
+if [ -n "$VIRTUAL_ENV" ]; then
+    # If we're in a virtual environment, use its python
+    PYTHON="python"
+elif command -v python3 &> /dev/null; then
+    PYTHON="python3"
+elif command -v python &> /dev/null; then
+    PYTHON="python"
+else
+    echo "ERROR: Python is not installed or not in PATH"
+    echo "Please install Python 3.8+ and try again"
+    exit 1
+fi
 
 function print_usage {
   echo "Usage: ./run install | test | /absolute/path/to/file"

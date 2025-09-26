@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from src.Interfaces import ModelData
 from src.Metric import Metric
-from src.util.metadata_fetchers import GitHubFetcher, HuggingFaceFetcher
+from src.util.metadata_fetchers import GitHubFetcher, HuggingFaceFetcher, DatasetFetcher
 from src.util.url_utils import URLSet, classify_urls
 
 
@@ -22,6 +22,7 @@ class Model(ModelData):
         # Metadata Caching
         self._hf_metadata: Optional[Dict[str, Any]] = None
         self._github_metadata: Optional[Dict[str, Any]] = None
+        self._dataset_metadata: Optional[Dict[str, Any]] = None
 
         # Get GitHub token from environment (validated at startup)
         self._github_token: Optional[str] = os.getenv("GITHUB_TOKEN")
@@ -55,6 +56,13 @@ class Model(ModelData):
             fetcher = GitHubFetcher(token=self._github_token)
             self._github_metadata = fetcher.fetch_metadata(self.codeLink)
         return self._github_metadata
+
+    @property
+    def dataset_metadata(self) -> Optional[Dict[str, Any]]:
+        if self._dataset_metadata is None:
+            fetcher = DatasetFetcher()
+            self._dataset_metadata = fetcher.fetch_metadata(self.datasetLink)
+        return self._dataset_metadata
 
     def getScore(
         self, metric_name: str, default: float = 0.0
