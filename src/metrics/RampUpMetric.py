@@ -1,173 +1,149 @@
-import re
-from typing import Optional
+import os
 
+import requests
 from loguru import logger
 
 from src.Interfaces import ModelData
 from src.Metric import Metric
 
-try:
-    from huggingface_hub import HfApi, hf_hub_download
-    from huggingface_hub.utils import HfHubHTTPError
-except Exception:
-    HfApi = None  # type: ignore
-    HfHubHTTPError = Exception  # type: ignore
-    hf_hub_download = None  # type: ignore
-
 
 class RampUpMetric(Metric):
-    """
-    Ramp-Up Time checklist (each = +0.20):
-      1) README present
-      2) Install instructions present
-      3) Usage example present
-      4) Dataset info present (README or model_index.json)
-      5) Training script/command present
+    PARDUE_AI_API_URL = "https://genai.rcac.purdue.edu/api/chat/completions"
 
-    If neither README.md nor model_index.json is present, return 0.0.
-    """
-
-    # ----------------- simple heuristics -----------------
-    @staticmethod
-    def _has_install_instructions(text: str) -> bool:
-        t = text.lower()
-        patterns = [
-            r"\bpip\s+install\b",
-            r"\bpip3\s+install\b",
-            r"\bconda\s+install\b",
-            r"requirements\.txt",
-            r"\bpoetry\s+add\b",
-            r"\bdocker\s+(pull|run|build)\b",
-        ]
-        return any(re.search(p, t) for p in patterns)
-
-    @staticmethod
-    def _has_usage_example(text: str) -> bool:
-        # Look for code fences or typical import/usage cues
-        t = text
-        cues = [
-            r"```(?:python|py|bash|sh)?\s",  # fenced code blocks
-            r"\bfrom\s+\w+\s+import\s+\w+",
-            r"\bimport\s+\w+",
-            r"\bpipeline\(",
-            r"\bAuto(Model|Tokenizer|Processor)\b",
-            r"\bUsage\b",
-            r"\bExample(s)?\b",
-        ]
-        return any(re.search(p, t, flags=re.I) for p in cues)
-
-    @staticmethod
-    def _has_dataset_info(readme: str, model_index_json: Optional[str]) -> bool:
-        # README hints
-        readme_hit = bool(re.search(r"\bdataset(s)?\b", readme, flags=re.I)) or \
-                     bool(re.search(r"\btrained\s+on\b", readme, flags=re.I)) or \
-                     bool(
-                        re.search(r"\bdata\s+(source|collection)\b", readme, flags=re.I)
-                    )
-        # model_index.json hints
-        idx_hit = False
-        if model_index_json:
-            idx_hit = (
-                bool(re.search(r'"dataset(s)?"\s*:', model_index_json, flags=re.I)) or
-                bool(re.search(r'"trained_on"\s*:', model_index_json, flags=re.I)) or
-                bool(re.search(r'"evaluation"\s*:', model_index_json, flags=re.I))
+    def __init__(self):
+        self.API_KEY = os.getenv("GEN_AI_STUDIO_API_KEY", "")
+        if not self.API_KEY:
+            logger.warning(
+                "Environment variable GEN_AI_STUDIO_API_KEY is not set. "
+                "API calls may fail."
             )
-        return readme_hit or idx_hit
 
-    @staticmethod
-    def _has_training_script_or_cmd(text: str) -> bool:
-        t = text.lower()
-        patterns = [
-            r"\btrain\.py\b",
-            r"\bpython\s+train(\.py)?\b",
-            r"\baccelerate\s+launch\b",
-            r"\btrainer\b",            # HF Trainer mention
-            r"\bfine[- ]?tune\b",
-            r"\bscripts?\/?train",     # scripts/train*.sh, etc.
-        ]
-        return any(re.search(p, t) for p in patterns)
-
-    # ----------------- main entry -----------------
     def evaluate(self, model: ModelData) -> float:
-        # Resolve a HF model repo id from ModelData
-        repo_id = getattr(model, "model_id", None) or getattr(model, "model_url", None)
-        if not repo_id:
-            # Many projects put it in metadata
-            meta = getattr(model, "metadata", {}) or {}
-            repo_id = meta.get("model") or meta.get("huggingface_model")
+        logger.debug("Evaluating Ramp Up Time Metric...")
 
-        if not repo_id:
-            logger.error("RampUpMetric: No model id/url provided on ModelData.")
-            return 0.0
+        readme_text = self._get_readme_text(model)
+        model_index_text = self._get_model_index_text(model)
 
-        if HfApi is None or hf_hub_download is None:
-            logger.error(
-                "RampUpMetric: huggingface_hub not installed."
+        if not readme_text and not model_index_text:
+            logger.warning(
+                "No README.md or model_index.json data found; returning 0.0 score."
             )
             return 0.0
 
-        api = HfApi()
+        combined_text = "\n\n".join(filter(None, [readme_text, model_index_text]))
+        score = self._query_purdue_ai(combined_text)
 
-        # --- Pull README (model repo) ---
-        readme_md = ""
-        try:
-            readme_md = api.get_repo_readme(repo_id=repo_id, repo_type="model") or ""
-        except HfHubHTTPError:
-            readme_md = ""
-        except Exception:
-            readme_md = ""
+        logger.debug(f"Ramp Up Time Metric score: {score}")
+        return score
 
-        # --- Pull model_index.json if present ---
-        model_index_text: Optional[str] = None
-        try:
-            files = api.list_repo_files(repo_id=repo_id, repo_type="model") or []
-            if "model_index.json" in files:
-                fp = hf_hub_download(
-                    repo_id=repo_id, filename="model_index.json", repo_type="model"
-                )
+    def _get_readme_text(self, model: ModelData) -> str | None:
+        """Get README text from cached metadata or fetch from repo URL."""
+        # Try GitHub metadata first
+        if model.github_metadata and "readme" in model.github_metadata:
+            logger.debug("Using cached README from GitHub metadata")
+            return model.github_metadata["readme"]
+
+        # Try HuggingFace metadata next
+        if model.hf_metadata and "readme" in model.hf_metadata:
+            logger.debug("Using cached README from HuggingFace metadata")
+            return model.hf_metadata["readme"]
+
+        # Fallback to fetching README.md from repo URL if available
+        if model.modelLink:
+            readme_url = self._construct_raw_url(model.modelLink, "README.md")
+            if readme_url:
                 try:
-                    with open(fp, "r", encoding="utf-8", errors="ignore") as f:
-                        model_index_text = f.read()
-                except Exception:
-                    model_index_text = None
-        except HfHubHTTPError:
-            model_index_text = None
-        except Exception:
-            model_index_text = None
+                    response = requests.get(readme_url, timeout=5)
+                    response.raise_for_status()
+                    logger.debug("Successfully fetched README.md from repo")
+                    return response.text
+                except Exception as e:
+                    logger.warning(f"Failed to fetch README.md from {readme_url}: {e}")
+        return None
 
-        # If neither README nor model_index.json exists, short-circuit to 0.0
-        if not readme_md and not model_index_text:
-            logger.debug(
-                f"RampUpMetric: {repo_id} has no README or model_index.json → score 0.0"
+    def _get_model_index_text(self, model: ModelData) -> str | None:
+        """Get model_index.json text from cached metadata or fetch from repo URL."""
+        # Try GitHub metadata first
+        if model.github_metadata and "model_index" in model.github_metadata:
+            logger.debug("Using cached model_index from GitHub metadata")
+            return model.github_metadata["model_index"]
+
+        # Try HuggingFace metadata next
+        if model.hf_metadata and "model_index" in model.hf_metadata:
+            logger.debug("Using cached model_index from HuggingFace metadata")
+            return model.hf_metadata["model_index"]
+
+        # Fallback to fetching model_index.json from repo URL if available
+        if model.modelLink:
+            model_index_url = self._construct_raw_url(
+                model.modelLink, "model_index.json"
             )
+            if model_index_url:
+                try:
+                    response = requests.get(model_index_url, timeout=5)
+                    response.raise_for_status()
+                    logger.debug("Successfully fetched model_index.json from repo")
+                    return response.text
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to fetch model_index.json from {model_index_url}: {e}"
+                    )
+        return None
+
+    def _construct_raw_url(self, repo_url: str, filename: str) -> str:
+        """
+        Convert GitHub or Hugging Face repo URL to raw file
+        URL for README or model_index.
+        """
+        if "github.com" in repo_url:
+            parts = repo_url.rstrip("/").split("/")
+            if len(parts) < 5:
+                logger.warning(f"GitHub repo URL malformed: {repo_url}")
+                return ""
+            owner, repo = parts[3], parts[4]
+            return f"https://raw.githubusercontent.com/{owner}/{repo}/main/{filename}"
+
+        if "huggingface.co" in repo_url:
+            parts = repo_url.rstrip("/").split("/")
+            if len(parts) < 5:
+                logger.warning(f"Hugging Face repo URL malformed: {repo_url}")
+                return ""
+            namespace, repo = parts[3], parts[4]
+            return (
+                f"https://huggingface.co/{namespace}/{repo}/resolve/main/{filename}"
+            )
+
+        logger.warning(f"Unknown repo host for URL: {repo_url}")
+        return ""
+
+    def _query_purdue_ai(self, text: str) -> float:
+        """Send combined README and model_index text to Purdue AI API and get score."""
+        headers = {
+            "Authorization": f"Bearer {self.API_KEY}",
+            "Content-Type": "application/json",
+        }
+        body = {
+            "model": "llama3.1:latest",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": text
+                }
+            ],
+            "stream": False
+        }
+
+        try:
+            response = requests.post(
+                self.PARDUE_AI_API_URL, json=body, headers=headers, timeout=10
+            )
+            response.raise_for_status()
+            data = response.json()
+            score = data.get("ramp_up_score", 0.0)
+            if not (0.0 <= score <= 1.0):
+                logger.warning(f"Received out-of-range score: {score}, clamping.")
+                score = max(0.0, min(1.0, score))
+            return score
+        except Exception as e:
+            logger.error(f"Failed to get ramp-up score from Purdue AI API: {e}")
             return 0.0
-
-        # Checklist booleans
-        has_readme = bool(readme_md.strip())
-        has_install = self._has_install_instructions(readme_md)
-        has_usage = self._has_usage_example(readme_md)
-        has_dataset = self._has_dataset_info(readme_md, model_index_text)
-        has_training = self._has_training_script_or_cmd(readme_md)
-
-        # Scoring: +0.20 each
-        score = (
-            0.20 * has_readme +
-            0.20 * has_install +
-            0.20 * has_usage +
-            0.20 * has_dataset +
-            0.20 * has_training
-        )
-
-        logger.debug(
-            "RampUpMetric: repo={repo} score={score:.2f} "
-            " | README={readme} install={install} "
-            "usage={usage} dataset={dataset} training={training}",
-            repo=repo_id,
-            score=score,
-            readme=has_readme,
-            install=has_install,
-            usage=has_usage,
-            dataset=has_dataset,
-            training=has_training,
-        )
-        return float(score)
