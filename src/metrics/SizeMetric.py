@@ -94,7 +94,10 @@ class SizeMetric(Metric):
             size_bytes = param_count * bytes_per_param
             size_gb = size_bytes / (1024 ** 3)
 
-            logger.info(f"Model size: {param_count:,} params * {bytes_per_param} bytes = {size_gb:.2f}GB")
+            logger.info(
+                f"Model size: {param_count:,} params * {bytes_per_param} \
+                    bytes = {size_gb:.2f}GB"
+            )
             return size_gb
 
         except Exception as e:
@@ -107,34 +110,41 @@ class SizeMetric(Metric):
         Returns bytes per parameter, defaults to 2 (float16) if not found.
         """
         import re
-        
+
         try:
             if "config" in metadata:
                 config = metadata["config"]
-                
+
                 # Check torch_dtype field
                 torch_dtype = config.get("torch_dtype", "")
                 if torch_dtype:
-                    # Extract number from dtype name (e.g., "float16" -> 16, "int8" -> 8)
+                    # Extract number from dtype name
+                    # (e.g., "float16" -> 16, "int8" -> 8)
                     match = re.search(r'(\d+)', str(torch_dtype))
                     if match:
                         bits = int(match.group(1))
                         bytes_per_param = bits / 8  # Convert bits to bytes
-                        logger.debug(f"Extracted from torch_dtype '{torch_dtype}': {bits} bits = {bytes_per_param} bytes/param")
+                        logger.debug(
+                            f"Extracted from torch_dtype '{torch_dtype}': {bits} \
+                                bits = {bytes_per_param} bytes/param"
+                        )
                         return bytes_per_param
-                
+
                 # Check quantization config for bits field
                 if "quantization_config" in config:
                     quant_config = config["quantization_config"]
                     if isinstance(quant_config, dict) and "bits" in quant_config:
                         bits = quant_config["bits"]
                         bytes_per_param = bits / 8
-                        logger.debug(f"Found quantization bits: {bits} = {bytes_per_param} bytes/param")
+                        logger.debug(
+                            f"Found quantization bits: {bits} = \
+                                {bytes_per_param} bytes/param"
+                        )
                         return bytes_per_param
-        
+
         except Exception as e:
             logger.debug(f"Error extracting dtype: {e}")
-        
+
         # Default to float16 (2 bytes)
         logger.debug("Using default float16 (2 bytes/param)")
         return self.DEFAULT_BYTES_PER_PARAM
@@ -149,7 +159,10 @@ class SizeMetric(Metric):
                     if field in config and isinstance(config[field], (int, float)):
                         param_count = int(config[field])
                         if param_count > 0:
-                            logger.debug(f"Found parameter count: {param_count:,} at config.{field}")
+                            logger.debug(
+                                f"Found parameter count: {param_count:,} \
+                                    at config.{field}"
+                            )
                             return param_count
 
             # Check direct metadata
@@ -157,15 +170,20 @@ class SizeMetric(Metric):
                 if field in metadata and isinstance(metadata[field], (int, float)):
                     param_count = int(metadata[field])
                     if param_count > 0:
-                        logger.debug(f"Found parameter count: {param_count:,} at {field}")
+                        logger.debug(
+                            f"Found parameter count: {param_count:,} at {field}"
+                        )
                         return param_count
 
-            # Special case: extract from model name patterns (e.g., "llama-7b", "gpt-3.5b")
+            # Special case: extract from model name patterns
+            # (e.g., "llama-7b", "gpt-3.5b")
             if "config" in metadata and "name_or_path" in metadata["config"]:
                 name = metadata["config"]["name_or_path"]
                 param_count = self._extract_params_from_name(name)
                 if param_count:
-                    logger.debug(f"Extracted parameter count from name: {param_count:,}")
+                    logger.debug(
+                        f"Extracted parameter count from name: {param_count:,}"
+                    )
                     return param_count
 
             return None

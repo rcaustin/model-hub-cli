@@ -24,8 +24,10 @@ Requirements:
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Any, Dict, List, Optional, Tuple
+
 from loguru import logger
+
 from src.Interfaces import ModelData
 from src.Metric import Metric
 
@@ -120,6 +122,7 @@ class CodeQualityMetric(Metric):
         logger.debug(f"Cloning repository: {clone_url} → {temp_dir}")
 
         try:
+            # TODO: Should not be using the "git" shell command!!
             subprocess.run(
                 [
                     'git', 'clone',

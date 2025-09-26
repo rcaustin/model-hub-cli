@@ -111,5 +111,6 @@ class Model(ModelData):
         self.evaluations["NetScore"] = net_score
         self.evaluationsLatency["NetScore"] = 0.0  # Derived metric, no latency
         self.evaluationsLatency["NetScore"] = sum(
-            latency for key, latency in self.evaluationsLatency.items() if key != "NetScore"
+            latency for key, latency in self.evaluationsLatency.items()
+            if key != "NetScore"
         )
