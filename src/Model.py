@@ -1,4 +1,5 @@
 import time
+import os
 from typing import Any, Dict, List, Optional, Union
 
 from src.Interfaces import ModelData
@@ -12,7 +13,7 @@ class Model(ModelData):
         self,
         urls: List[str]
     ):
-        # Extract andClassify URLs
+        # Extract and Classify URLs
         urlset: URLSet = classify_urls(urls)
         self.modelLink: str = urlset.model
         self.codeLink: Optional[str] = urlset.code
@@ -21,6 +22,9 @@ class Model(ModelData):
         # Metadata Caching
         self._hf_metadata: Optional[Dict[str, Any]] = None
         self._github_metadata: Optional[Dict[str, Any]] = None
+
+        # Get GitHub token from environment (validated at startup)
+        self._github_token: Optional[str] = os.getenv("GITHUB_TOKEN")
 
         """
         evaluations maps metric names to their scores.
@@ -47,7 +51,8 @@ class Model(ModelData):
     @property
     def github_metadata(self) -> Optional[Dict[str, Any]]:
         if self._github_metadata is None:
-            fetcher = GitHubFetcher()
+            # Pass the validated GitHub token to the fetcher
+            fetcher = GitHubFetcher(token=self._github_token)
             self._github_metadata = fetcher.fetch_metadata(self.codeLink)
         return self._github_metadata
 
@@ -80,7 +85,7 @@ class Model(ModelData):
     def getCategory(self) -> str:
         return "MODEL"
 
-    def computeNetScore(self) -> None:
+    def computeNetScore(self) -> float:
         def safe_score(key: str) -> float:
             val = self.evaluations.get(key)
             if key == "SizeMetric":
@@ -114,3 +119,5 @@ class Model(ModelData):
             latency for key, latency in self.evaluationsLatency.items()
             if key != "NetScore"
         )
+        
+        return net_score
