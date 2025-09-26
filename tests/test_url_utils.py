@@ -98,3 +98,20 @@ def test_classify_urls_too_many_urls():
     ]
     with pytest.raises(ValueError, match="No more than 3 URLs allowed"):
         url_utils.classify_urls(urls)
+
+
+
+def test_parse_positional_and_missing():
+    from src.util.url_utils import parse_urls_by_position
+    u = parse_urls_by_position(["https://github.com/o/r", "", "https://huggingface.co/o/m"])
+    assert u.code.endswith("/o/r")
+    assert u.dataset is None
+    assert u.model.endswith("/o/m")
+
+def test_requires_model_third_slot():
+    from src.util.url_utils import parse_urls_by_position
+    try:
+        parse_urls_by_position(["https://github.com/o/r", ""])
+        assert False, "expected ValueError"
+    except ValueError as e:
+        assert "Model URL" in str(e)

@@ -8,7 +8,15 @@ from src.util.metadata_fetchers import GitHubFetcher, HuggingFaceFetcher, Datase
 from src.util.url_utils import URLSet, classify_urls
 
 
+
 class Model(ModelData):
+    # -----------------------------------------
+    # Shared, process-wide dictionary that all Model instances can use.
+    # Keys are canonical dataset names (lowercased), values are absolute URLs.
+    # This is intentionally a class variable (Python "static" style).
+    
+    DATASET_NAME_TO_URL: dict[str, str] = {}
+
     def __init__(
         self,
         urls: List[str]
@@ -34,6 +42,16 @@ class Model(ModelData):
         """
         self.evaluations: dict[str, Union[float, dict[str, float]]] = {}
         self.evaluationsLatency: dict[str, float] = {}
+
+
+        # --- NEW: opportunistically infer missing links ---
+        # Only touch what is missing; keep explicit user-provided links authoritative.
+        if self.datasetLink is None:
+            self._maybe_fill_dataset_from_hf()
+
+        if self.codeLink is None:
+            self._maybe_fill_code_from_hf()
+
 
     @property
     def name(self) -> str:
@@ -63,6 +81,98 @@ class Model(ModelData):
             fetcher = DatasetFetcher()
             self._dataset_metadata = fetcher.fetch_metadata(self.datasetLink)
         return self._dataset_metadata
+
+    # ------------------------ NEW HELPERS ------------------------
+
+    def _maybe_fill_dataset_from_hf(self) -> None:
+        """
+        If dataset URL missing, try to infer it from Hugging Face model card.
+        Strategy:
+          1) Read hf_metadata["card_data"]["datasets"] (string or list).
+          2) Try to map each candidate name -> URL using the shared class dict.
+          3) If a candidate looks like 'org/name', synthesize a HF dataset URL and cache it.
+          4) First resolved URL wins; otherwise leave None.
+        """
+        meta = self.hf_metadata  # triggers fetch lazily
+        if not meta:
+            return
+
+        card_data = meta.get("card_data") or meta.get("cardData") or {}
+        candidates = card_data.get("datasets")
+        if not candidates:
+            return
+
+        # Normalize to a list of strings
+        if isinstance(candidates, str):
+            names = [candidates]
+        elif isinstance(candidates, list):
+            # lists can contain strings or dicts; try to extract names
+            names = []
+            for item in candidates:
+                if isinstance(item, str):
+                    names.append(item)
+                elif isinstance(item, dict):
+                    # common shapes: {"id": "org/name"} or {"name": "..."}
+                    val = item.get("id") or item.get("name")
+                    if isinstance(val, str):
+                        names.append(val)
+        else:
+            return
+
+        for raw in names:
+            key = raw.strip().lower()
+            # 1) Look up in the shared cache
+            cached = Model.DATASET_NAME_TO_URL.get(key)
+            if cached:
+                self.datasetLink = cached
+                return
+
+            # 2) If 'org/name' form, synthesize HF dataset URL and cache it
+            if "/" in raw and len(raw.split("/")) == 2:
+                org, ds = raw.split("/", 1)
+                if org and ds:
+                    url = f"https://huggingface.co/datasets/{org}/{ds}"
+                    Model.DATASET_NAME_TO_URL[key] = url
+                    self.datasetLink = url
+                    return
+
+        # If we reach here, we didn’t find anything trustworthy; leave None
+
+    def _maybe_fill_code_from_hf(self) -> None:
+        """
+        If code URL missing, try a few safe heuristics from the HF card.
+        We keep this conservative—only set when we’re confident.
+        """
+        meta = self.hf_metadata
+        if not meta:
+            return
+
+        card_data = meta.get("card_data") or meta.get("cardData") or {}
+
+        # Heuristic 1: explicit GitHub link fields some model cards include
+        likely_fields = ["repository", "github", "source_repo", "code_url"]
+        for f in likely_fields:
+            val = card_data.get(f)
+            if isinstance(val, str) and "github.com" in val:
+                self.codeLink = val
+                return
+
+        # Heuristic 2: some cards put links under "links" or "paperswithcode"
+        links = card_data.get("links")
+        if isinstance(links, list):
+            for x in links:
+                if isinstance(x, str) and "github.com" in x:
+                    self.codeLink = x
+                    return
+                if isinstance(x, dict):
+                    u = x.get("url") or x.get("href")
+                    if isinstance(u, str) and "github.com" in u:
+                        self.codeLink = u
+                        return
+
+        # Nothing found -> leave None (graceful)
+
+    # -------------------------------------------------------------
 
     def getScore(
         self, metric_name: str, default: float = 0.0
