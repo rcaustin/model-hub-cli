@@ -22,7 +22,9 @@ class Model(ModelData):
         urls: List[str]
     ):
         # Extract and Classify URLs
-        urlset: URLSet = classify_urls(urls)
+        # urlset: URLSet = classify_urls(urls)
+        # Positional parsing (code, dataset, model) -> URLSet(model, code, dataset)
+        urlset: URLSet = parse_urls_by_position(urls)
         self.modelLink: str = urlset.model
         self.codeLink: Optional[str] = urlset.code
         self.datasetLink: Optional[str] = urlset.dataset
