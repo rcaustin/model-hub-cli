@@ -126,7 +126,9 @@ class GitHubFetcher(MetadataFetcher):
             repo_resp = self.session.get(repo_url, headers=headers, timeout=5)
             if repo_resp.ok:
                 metadata["clone_url"] = repo_resp.json().get("clone_url")
-                metadata["stargazers_count"] = repo_resp.json().get("stargazers_count", 0)
+                metadata["stargazers_count"] = repo_resp.json().get(
+                    "stargazers_count", 0
+                )
                 metadata["forks_count"] = repo_resp.json().get("forks_count", 0)
 
                 logger.debug("GitHub repository data retrieved.")
@@ -142,7 +144,7 @@ class GitHubFetcher(MetadataFetcher):
 
             # Fetch commit activity
             commits_url = f"{self.BASE_API_URL}/{owner}/{repo}/commits"
-            params: dict[str, Any] = {"since": "30 days ago", "per_page": 100}  # Last 30 days
+            params: dict[str, Any] = {"since": "30 days ago", "per_page": 100}
             commits_resp = self.session.get(commits_url, params=params, headers=headers)
             if commits_resp.ok:
                 avg_daily_commits = len(commits_resp.json()) / 30
