@@ -38,8 +38,7 @@ def run_catalogue(file_path: str) -> int:
                         line_num,
                         line
                     )
-                    success = False
-                    continue
+                    exit(1)
 
                 # Filter out empty strings
                 urls = [url for url in parts if url]
