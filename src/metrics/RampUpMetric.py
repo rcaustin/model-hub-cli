@@ -1,6 +1,7 @@
 import os
-
 import requests
+
+from huggingface_hub import hf_hub_download
 from loguru import logger
 
 from src.Interfaces import ModelData
@@ -30,91 +31,74 @@ class RampUpMetric(Metric):
             )
             return 0.0
 
-        combined_text = "\n\n".join(filter(None, [readme_text, model_index_text]))
+        combined_text = """Evaluate the following AI model's README and index text
+            to determine a ramp-up time metric representing how difficult it would
+            be for a new team to learn and apply the model to develop new products
+            or services. The metric should consist of a single floating-point value
+            between 0.0 and 1.0, where 0.0 is extremely difficult to learn and 1.0
+            is extremely easy for a new team to learn.
+
+            Specifically you should add +.20 for each of the following:
+              - a clear and helpful README
+              - clear installation instructions
+              - usage examples
+              - a dataset description
+              - a training script\n\n"""
+        combined_text += "\n\n".join(filter(None, [readme_text, model_index_text]))
         score = self._query_purdue_ai(combined_text)
 
         logger.debug(f"Ramp Up Time Metric score: {score}")
         return score
 
     def _get_readme_text(self, model: ModelData) -> str | None:
-        """Get README text from cached metadata or fetch from repo URL."""
-        # Try GitHub metadata first
-        if model.github_metadata and "readme" in model.github_metadata:
-            logger.debug("Using cached README from GitHub metadata")
-            return model.github_metadata["readme"]
+        if not model.modelLink or "huggingface.co" not in model.modelLink:
+            return None
 
-        # Try HuggingFace metadata next
-        if model.hf_metadata and "readme" in model.hf_metadata:
-            logger.debug("Using cached README from HuggingFace metadata")
-            return model.hf_metadata["readme"]
+        parts = model.modelLink.rstrip("/").split("/")
+        if len(parts) < 5:
+            return None
 
-        # Fallback to fetching README.md from repo URL if available
-        if model.modelLink:
-            readme_url = self._construct_raw_url(model.modelLink, "README.md")
-            if readme_url:
-                try:
-                    response = requests.get(readme_url, timeout=5)
-                    response.raise_for_status()
-                    logger.debug("Successfully fetched README.md from repo")
-                    return response.text
-                except Exception as e:
-                    logger.warning(f"Failed to fetch README.md from {readme_url}: {e}")
+        repo_id = f"{parts[3]}/{parts[4]}"
+        try:
+            readme_path = hf_hub_download(
+                repo_id=repo_id,
+                filename="README.md"
+            )
+            with open(readme_path, "r", encoding="utf-8") as f:
+                logger.debug("Successfully fetched README.md from Hugging Face repo")
+                return f.read()
+        except Exception as e:
+            logger.warning(f"Failed to fetch README.md via huggingface_hub: {e}")
+
         return None
 
     def _get_model_index_text(self, model: ModelData) -> str | None:
-        """Get model_index.json text from cached metadata or fetch from repo URL."""
-        # Try GitHub metadata first
-        if model.github_metadata and "model_index" in model.github_metadata:
-            logger.debug("Using cached model_index from GitHub metadata")
-            return model.github_metadata["model_index"]
+        """Fetch model_index.json text only from Hugging Face repo using
+            huggingface_hub."""
+        if not model.modelLink or "huggingface.co" not in model.modelLink:
+            return None
 
-        # Try HuggingFace metadata next
-        if model.hf_metadata and "model_index" in model.hf_metadata:
-            logger.debug("Using cached model_index from HuggingFace metadata")
-            return model.hf_metadata["model_index"]
+        parts = model.modelLink.rstrip("/").split("/")
+        if len(parts) < 5:
+            return None
 
-        # Fallback to fetching model_index.json from repo URL if available
-        if model.modelLink:
-            model_index_url = self._construct_raw_url(
-                model.modelLink, "model_index.json"
+        repo_id = f"{parts[3]}/{parts[4]}"
+        try:
+            model_index_path = hf_hub_download(
+                repo_id=repo_id,
+                filename="model_index.json"
             )
-            if model_index_url:
-                try:
-                    response = requests.get(model_index_url, timeout=5)
-                    response.raise_for_status()
-                    logger.debug("Successfully fetched model_index.json from repo")
-                    return response.text
-                except Exception as e:
-                    logger.warning(
-                        f"Failed to fetch model_index.json from {model_index_url}: {e}"
-                    )
+            with open(model_index_path, "r", encoding="utf-8") as f:
+                logger.debug(
+                    "Successfully fetched model_index.json from Hugging Face"
+                )
+                return f.read()
+        except Exception as e:
+            logger.warning(
+                f"Failed to fetch model_index.json via huggingface_hub: {e}"
+            )
+
         return None
-
-    def _construct_raw_url(self, repo_url: str, filename: str) -> str:
-        """
-        Convert GitHub or Hugging Face repo URL to raw file
-        URL for README or model_index.
-        """
-        if "github.com" in repo_url:
-            parts = repo_url.rstrip("/").split("/")
-            if len(parts) < 5:
-                logger.warning(f"GitHub repo URL malformed: {repo_url}")
-                return ""
-            owner, repo = parts[3], parts[4]
-            return f"https://raw.githubusercontent.com/{owner}/{repo}/main/{filename}"
-
-        if "huggingface.co" in repo_url:
-            parts = repo_url.rstrip("/").split("/")
-            if len(parts) < 5:
-                logger.warning(f"Hugging Face repo URL malformed: {repo_url}")
-                return ""
-            namespace, repo = parts[3], parts[4]
-            return (
-                f"https://huggingface.co/{namespace}/{repo}/resolve/main/{filename}"
-            )
-
-        logger.warning(f"Unknown repo host for URL: {repo_url}")
-        return ""
 
     def _query_purdue_ai(self, text: str) -> float:
         """Send combined README and model_index text to Purdue AI API and get score."""
@@ -124,12 +108,10 @@ class RampUpMetric(Metric):
         }
         body = {
             "model": "llama3.1:latest",
-            "messages": [
-                {
-                    "role": "user",
-                    "content": text
-                }
-            ],
+            "messages": [{
+                "role": "user",
+                "content": text
+            }],
             "stream": False
         }
 
