@@ -1,4 +1,5 @@
 from loguru import logger
+from typing import Any
 
 from src.Interfaces import ModelData
 from src.Metric import Metric
@@ -39,7 +40,7 @@ class LicenseMetric(Metric):
             float: Score from 0.0 (incompatible) to 1.0 (fully compatible).
         """
         logger.debug("Evaluating LicenseMetric...")
-        license_id = None
+        license_id : Any = None  # license_id is returned as Any from metadata
 
         # Step 1: Try HuggingFace metadata
         if model.modelLink and "huggingface.co" in model.modelLink:
@@ -61,7 +62,9 @@ class LicenseMetric(Metric):
                 license_info = gh_meta if isinstance(gh_meta, dict) else {}
                 license_id = license_info.get("license", "")
                 if license_id:
-                    logger.debug("License found in GitHub metadata: {}", license_id)
+                    logger.debug(
+                        "License found in GitHub metadata: {}", license_id
+                    )
 
         # Step 3: Map license to score
         license_score = self.LICENSE_COMPATIBILITY.get(license_id, 0.5)

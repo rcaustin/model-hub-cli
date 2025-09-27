@@ -89,9 +89,9 @@ def test_main_entrypoint_with_arg(
 
     test_argv = ["main.py", str(file_path)]
 
-    with patch("sys.argv", test_argv), \
-         patch("sys.exit") as mock_exit, \
-         patch("src.main.validate_github_token", return_value=True):
+    with patch("sys.argv", test_argv), patch("sys.exit") as mock_exit, patch(
+        "src.main.validate_github_token", return_value=True
+    ):
         main.configure_logging()
         # call main block code manually:
         if len(sys.argv) < 2:

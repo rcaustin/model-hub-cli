@@ -1,6 +1,7 @@
 """
 Basic tests for the model-hub-cli project.
 """
+
 import sys
 
 import pytest
@@ -20,8 +21,7 @@ def test_imports():
 
 def test_python_version():
     """Test that we're using Python 3.8+."""
-    assert sys.version_info >= (3, 8), \
-           f"Python 3.8+ required, got {sys.version}"
+    assert sys.version_info >= (3, 8), f"Python 3.8+ required, got {sys.version}"
 
 
 def test_placeholder():
