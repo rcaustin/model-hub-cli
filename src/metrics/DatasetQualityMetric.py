@@ -11,10 +11,12 @@ from src.Metric import Metric
 
 class DatasetQualityMetric(Metric):
     """
-    DatasetQualityMetric evaluates dataset quality using LLM analysis of dataset metadata.
+    DatasetQualityMetric evaluates dataset quality using
+    LLM analysis of dataset metadata.
 
     Scoring System:
-    Uses Purdue GenAI Studio's LLM to analyze dataset metadata and return a quality score
+    Uses Purdue GenAI Studio's LLM
+    to analyze dataset metadata and return a quality score
     from 0.0 to 1.0 based on factors like:
     - Dataset size and completeness
     - Documentation quality
@@ -64,18 +66,23 @@ class DatasetQualityMetric(Metric):
         metadata_json: str = json.dumps(metadata, indent=2)
 
         prompt: str = f"""
-You are an expert dataset evaluator. Analyze the following dataset metadata JSON and provide a quality score from 0.0 to 1.0.
+You are an expert dataset evaluator.
+Analyze the following dataset metadata JSON and provide a quality score from 0.0 to 1.0.
 
 Dataset Metadata:
 {metadata_json}
 
 Evaluation Criteria:
-1. Dataset Size & Completeness (0-0.3): File count, storage size, data volume, comprehensiveness
-2. Documentation Quality (0-0.3): Description clarity, metadata completeness, tags, categorization
-3. Community Engagement (0-0.2): Downloads, likes, usage indicators, popularity
-4. Maintenance & Recency (0-0.2): Last update, active maintenance, freshness
+1. Dataset Size & Completeness (0-0.3):
+    File count, storage size, data volume, comprehensiveness
+2. Documentation Quality (0-0.3): Description clarity, metadata completeness, tags,
+    categorization
+3. Community Engagement (0-0.2):
+    Downloads, likes, usage indicators, popularity
+4. Maintenance & Recency (0-0.2):
 
-Please provide ONLY a numerical score between 0.0 and 1.0 as your response. No explanation needed.
+Please provide ONLY a numerical score between 0.0 and 1.0 as your response.
+No explanation needed.
 """
 
         return prompt
@@ -97,7 +104,9 @@ Please provide ONLY a numerical score between 0.0 and 1.0 as your response. No e
             response = requests.post(self.api_url, headers=self.headers, json=body)
 
             if response.status_code != 200:
-                logger.error(f"API request failed: {response.status_code}, {response.text}")
+                logger.error(
+                    f"API request failed: {response.status_code}, {response.text}"
+                )
                 return None
 
             response_data: Dict[str, Any] = response.json()
@@ -112,7 +121,9 @@ Please provide ONLY a numerical score between 0.0 and 1.0 as your response. No e
                     logger.debug(f"LLM returned score: {score}")
                     return max(0.0, min(1.0, score))  # Clamp between 0 and 1
                 else:
-                    logger.warning(f"Could not parse score from LLM response: {content}")
+                    logger.warning(
+                        f"Could not parse score from LLM response: {content}"
+                    )
 
             return None
 

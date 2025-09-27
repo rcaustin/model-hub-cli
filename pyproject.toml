@@ -1,5 +1,3 @@
-#Example from ChatGPT. Might need to edit for our purposes.
-
 [tool.pytest.ini_options]
 # Directories where tests live
 testpaths = ["tests"]
@@ -12,6 +10,22 @@ python_files = "test_*.py"
 # Maximum line length for code
 max-line-length = 88
 # Directories/files to exclude from linting
-exclude = [".venv", "__pycache__", "build", "dist"]
-# Ignore unused import warning in test_basic.py
-per-file-ignores = "tests/test_basic.py:F401"
+exclude = [".venv", "__pycache__", "build", "dist", ".git"]
+# Relax type annotation and import rules for test files
+per-file-ignores = [
+    "tests/*:F401,ANN201,ANN001,ANN401",  # Allow unused imports, missing return types, missing arg types, and Any usage in tests
+]
+extend-ignore = [
+    "E203",  # Whitespace before ':' (conflicts with Black formatter)
+    "W503",  # Line break before binary operator (old style)
+    "ANN101", # Missing type annotation for 'self' (redundant)
+    "ANN102", # Missing type annotation for 'cls' (redundant)
+]
+
+[tool.mypy]
+python_version = "3.11"
+# Require type annotations for variables
+disallow_untyped_defs = true
+disallow_any_unimported = true
+disallow_incomplete_defs = true
+show_error_codes = true

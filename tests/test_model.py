@@ -15,7 +15,7 @@ class ComplexDummyMetric(Metric):
             "raspberry_pi": 0.6,
             "jetson_nano": 0.6,
             "desktop_pc": 0.8,
-            "aws_server": 0.8
+            "aws_server": 0.8,
         }
 
 
@@ -66,7 +66,7 @@ def test_get_score_with_dict(sample_urls):
         "raspberry_pi": 0.6,
         "jetson_nano": 0.6,
         "desktop_pc": 0.8,
-        "aws_server": 0.8
+        "aws_server": 0.8,
     }
 
     assert model.getScore("ComplexDummyMetric") == expected_dict
@@ -85,13 +85,13 @@ def computeNetScore(self) -> float:
     avg_size_score = sum(size_score.values()) / len(size_score) if size_score else 0.0
 
     weighted_sum = (
-        0.2 * avg_size_score +
-        0.3 * rampup_score +
-        0.1 * bus_score +
-        0.1 * avail_score +
-        0.1 * data_qual_score +
-        0.1 * code_qual_score +
-        0.1 * perf_score
+        0.2 * avg_size_score
+        + 0.3 * rampup_score
+        + 0.1 * bus_score
+        + 0.1 * avail_score
+        + 0.1 * data_qual_score
+        + 0.1 * code_qual_score
+        + 0.1 * perf_score
     )
 
     net_score = license_score * weighted_sum
@@ -124,26 +124,26 @@ def test_compute_net_score_all_metrics_present(sample_urls):
             "raspberry_pi": 0.6,
             "jetson_nano": 0.6,
             "desktop_pc": 0.8,
-            "aws_server": 0.8
+            "aws_server": 0.8,
         },
         "RampUpMetric": 0.7,
         "BusFactorMetric": 0.8,
         "AvailabilityMetric": 0.9,
         "DatasetQualityMetric": 0.6,
         "CodeQualityMetric": 0.7,
-        "PerformanceClaimsMetric": 0.5
+        "PerformanceClaimsMetric": 0.5,
     }
 
     expected_size_avg = 0.7  # (0.6 + 0.6 + 0.8 + 0.8) / 4
 
     expected_weighted = (
-        0.2 * expected_size_avg +
-        0.3 * 0.7 +
-        0.1 * 0.8 +
-        0.1 * 0.9 +
-        0.1 * 0.6 +
-        0.1 * 0.7 +
-        0.1 * 0.5
+        0.2 * expected_size_avg
+        + 0.3 * 0.7
+        + 0.1 * 0.8
+        + 0.1 * 0.9
+        + 0.1 * 0.6
+        + 0.1 * 0.7
+        + 0.1 * 0.5
     )
 
     expected_score = round(1.0 * expected_weighted, 2)
@@ -161,14 +161,14 @@ def test_compute_net_score_missing_license_returns_zero(sample_urls):
             "raspberry_pi": 0.6,
             "jetson_nano": 0.6,
             "desktop_pc": 0.8,
-            "aws_server": 0.8
+            "aws_server": 0.8,
         },
         "RampUpMetric": 0.7,
         "BusFactorMetric": 0.8,
         "AvailabilityMetric": 0.9,
         "DatasetQualityMetric": 0.6,
         "CodeQualityMetric": 0.7,
-        "PerformanceClaimsMetric": 0.5
+        "PerformanceClaimsMetric": 0.5,
     }
 
     model.computeNetScore()
@@ -193,13 +193,13 @@ def test_compute_net_score_handles_missing_metrics_as_zero(sample_urls):
     }
 
     expected_weighted = (
-        0.2 * 0.0 +   # SizeMetric treated as 0
-        0.3 * 0.5 +
-        0.1 * 0.0 +   # BusFactorMetric treated as 0
-        0.1 * 0.7 +
-        0.1 * 0.6 +
-        0.1 * 0.65 +
-        0.1 * 0.0     # PerformanceClaimsMetric treated as 0
+        0.2 * 0.0  # SizeMetric treated as 0
+        + 0.3 * 0.5
+        + 0.1 * 0.0  # BusFactorMetric treated as 0
+        + 0.1 * 0.7
+        + 0.1 * 0.6
+        + 0.1 * 0.65
+        + 0.1 * 0.0  # PerformanceClaimsMetric treated as 0
     )
 
     expected_score = round(1.0 * expected_weighted, 2)
@@ -220,18 +220,18 @@ def test_compute_net_score_with_invalid_size_metric(sample_urls):
         "AvailabilityMetric": 0.9,
         "DatasetQualityMetric": 0.6,
         "CodeQualityMetric": 0.7,
-        "PerformanceClaimsMetric": 0.5
+        "PerformanceClaimsMetric": 0.5,
     }
 
     # Size gets treated as 0.0
     expected_weighted = (
-        0.0 +               # size
-        0.3 * 0.7 +
-        0.1 * 0.8 +
-        0.1 * 0.9 +
-        0.1 * 0.6 +
-        0.1 * 0.7 +
-        0.1 * 0.5
+        0.0  # size
+        + 0.3 * 0.7
+        + 0.1 * 0.8
+        + 0.1 * 0.9
+        + 0.1 * 0.6
+        + 0.1 * 0.7
+        + 0.1 * 0.5
     )
     expected_score = round(1.0 * expected_weighted, 2)
     model.computeNetScore()

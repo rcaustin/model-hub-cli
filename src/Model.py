@@ -12,7 +12,7 @@ class Model(ModelData):
     def __init__(
         self,
         urls: List[str]
-    ):
+    ) -> None:
         # Extract and Classify URLs
         urlset: URLSet = classify_urls(urls)
         self.modelLink: str = urlset.model
@@ -38,9 +38,12 @@ class Model(ModelData):
     @property
     def name(self) -> str:
         try:
-            return self.hf_metadata.get("id", "").split("/")[1]
+            hf_meta = self.hf_metadata  # This could be None
+            if hf_meta:  # Check for None first
+                return hf_meta.get("id", "").split("/")[1]
         except (AttributeError, IndexError):
-            return "UNKNOWN_MODEL"
+            pass
+        return "UNKNOWN_MODEL"
 
     @property
     def hf_metadata(self) -> Optional[Dict[str, Any]]:
@@ -54,18 +57,24 @@ class Model(ModelData):
         if self._github_metadata is None:
             # Pass the validated GitHub token to the fetcher
             fetcher = GitHubFetcher(token=self._github_token)
-            self._github_metadata = fetcher.fetch_metadata(self.codeLink)
+            if self.codeLink:
+                self._github_metadata = fetcher.fetch_metadata(self.codeLink)
+            else:
+                self._github_metadata = None  # No code link available
         return self._github_metadata
 
     @property
     def dataset_metadata(self) -> Optional[Dict[str, Any]]:
         if self._dataset_metadata is None:
             fetcher = DatasetFetcher()
-            self._dataset_metadata = fetcher.fetch_metadata(self.datasetLink)
+            if self.datasetLink:
+                self._dataset_metadata = fetcher.fetch_metadata(self.datasetLink)
+            else:
+                self._dataset_metadata = None  # No dataset link available
         return self._dataset_metadata
 
     def getScore(
-        self, metric_name: str, default: float = 0.0
+        self, metric_name: str, default: Union[float, dict[str, float]] = 0.0
     ) -> Union[float, dict[str, float]]:
         value = self.evaluations.get(metric_name, default)
         if isinstance(value, dict):
@@ -110,13 +119,13 @@ class Model(ModelData):
         license_score = safe_score("LicenseMetric")
 
         weighted_sum = (
-            0.2 * safe_score("SizeMetric") +
-            0.3 * safe_score("RampUpMetric") +
-            0.1 * safe_score("BusFactorMetric") +
-            0.1 * safe_score("AvailabilityMetric") +
-            0.1 * safe_score("DatasetQualityMetric") +
-            0.1 * safe_score("CodeQualityMetric") +
-            0.1 * safe_score("PerformanceClaimsMetric")
+            0.2 * safe_score("SizeMetric")
+            + 0.3 * safe_score("RampUpMetric")
+            + 0.1 * safe_score("BusFactorMetric")
+            + 0.1 * safe_score("AvailabilityMetric")
+            + 0.1 * safe_score("DatasetQualityMetric")
+            + 0.1 * safe_score("CodeQualityMetric")
+            + 0.1 * safe_score("PerformanceClaimsMetric")
         )
 
         net_score = license_score * weighted_sum
@@ -127,5 +136,5 @@ class Model(ModelData):
             latency for key, latency in self.evaluationsLatency.items()
             if key != "NetScore"
         )
-        
+
         return net_score

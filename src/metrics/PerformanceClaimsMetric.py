@@ -98,7 +98,7 @@ class PerformanceClaimsMetric(Metric):
 
     def _extract_hf_claims(self, model: ModelData) -> List[Dict[str, Any]]:
         """Extract performance claims from HuggingFace metadata."""
-        claims = []
+        claims: List[Dict[str, Any]] = []
 
         try:
             hf_meta = model.hf_metadata
@@ -140,7 +140,7 @@ class PerformanceClaimsMetric(Metric):
 
     def _extract_github_claims(self, model: ModelData) -> List[Dict[str, Any]]:
         """Extract performance claims from GitHub metadata."""
-        claims = []
+        claims: List[Dict[str, Any]] = []
 
         try:
             gh_meta = model.github_metadata
@@ -164,7 +164,7 @@ class PerformanceClaimsMetric(Metric):
 
     def _find_performance_claims(self, text: str) -> List[Dict[str, Any]]:
         """Find performance claims in text using regex patterns."""
-        claims = []
+        claims: List[Dict[str, Any]] = []
 
         if not text or not isinstance(text, str):
             return claims

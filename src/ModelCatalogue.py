@@ -19,7 +19,7 @@ class ModelCatalogue:
     # models holds all Model instances in the catalogue.
     # metrics holds all Metric instances to be applied to models.
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.models: list[Model] = []
         self.metrics: list[Metric] = [
             LicenseMetric(),
@@ -32,7 +32,7 @@ class ModelCatalogue:
             RampUpMetric()
         ]
 
-    def addModel(self, model: Model):
+    def addModel(self, model: Model) -> None:
         self.models.append(model)
 
         logger.debug(
@@ -45,11 +45,11 @@ class ModelCatalogue:
             model.codeLink
         )
 
-    def evaluateModels(self):
+    def evaluateModels(self) -> None:
         for model in self.models:
             model.evaluate_all(self.metrics)
 
-    def generateReport(self):
+    def generateReport(self) -> str:
         ndjson_report = []
         for model in self.models:
             ndjson_report.append(self.getModelNDJSON(model))

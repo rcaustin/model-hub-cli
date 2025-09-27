@@ -15,8 +15,7 @@ def test_huggingface_fetcher_success():
     metadata = fetcher.fetch_metadata(url)
 
     session.get.assert_called_once_with(
-        "https://huggingface.co/api/models/organization/model-id",
-        timeout=5
+        "https://huggingface.co/api/models/organization/model-id", timeout=5
     )
     assert metadata == {"id": "model-id", "downloads": 1000}
 
@@ -60,18 +59,18 @@ def test_github_fetcher_success():
     repo_response.json.return_value = {
         "clone_url": "https://github.com/org/repo.git",
         "stargazers_count": 100,
-        "forks_count": 50
+        "forks_count": 50,
     }
 
     # Mock commit activity response
     commit_response = MagicMock(ok=True)
-    commit_response.json.return_value = [{}]*150  # 150 commits in last 30 days
+    commit_response.json.return_value = [{}] * 150  # 150 commits in last 30 days
 
     session.get.side_effect = [
         contrib_response,
         license_response,
         repo_response,
-        commit_response
+        commit_response,
     ]
 
     fetcher = GitHubFetcher(session=session)
@@ -84,7 +83,7 @@ def test_github_fetcher_success():
         "clone_url": "https://github.com/org/repo.git",
         "stargazers_count": 100,
         "forks_count": 50,
-        "avg_daily_commits_30d": 5
+        "avg_daily_commits_30d": 5,
     }
     assert session.get.call_count == 4
 
@@ -124,18 +123,18 @@ def test_github_fetcher_partial_failure():
     repo_response.json.return_value = {
         "clone_url": "https://github.com/org/repo.git",
         "stargazers_count": 100,
-        "forks_count": 50
+        "forks_count": 50,
     }
 
     # Commit response succeeds
     commit_response = MagicMock(ok=True)
-    commit_response.json.return_value = [{}]*150  # 150 commits in last 30 days
+    commit_response.json.return_value = [{}] * 150  # 150 commits in last 30 days
 
     session.get.side_effect = [
         contrib_response,
         license_response,
         repo_response,
-        commit_response
+        commit_response,
     ]
 
     fetcher = GitHubFetcher(session=session)
@@ -146,7 +145,7 @@ def test_github_fetcher_partial_failure():
         "clone_url": "https://github.com/org/repo.git",
         "stargazers_count": 100,
         "forks_count": 50,
-        "avg_daily_commits_30d": 5
+        "avg_daily_commits_30d": 5,
     }
     assert session.get.call_count == 4
 
@@ -164,8 +163,7 @@ def test_dataset_fetcher_success():
     metadata = fetcher.fetch_metadata(url)
 
     session.get.assert_called_once_with(
-        "https://huggingface.co/api/datasets/xlangai/AgentNet",
-        timeout=5
+        "https://huggingface.co/api/datasets/xlangai/AgentNet", timeout=5
     )
     assert metadata == {"id": "dataset-id", "downloads": 5000}
 

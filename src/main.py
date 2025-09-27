@@ -11,33 +11,37 @@ from src.ModelCatalogue import ModelCatalogue
 def validate_github_token() -> bool:
     """
     Validate the GITHUB_TOKEN environment variable.
-    
+
     Returns:
         bool: True if token is valid, False otherwise
     """
     github_token = os.getenv("GITHUB_TOKEN")
-    
+
     if not github_token:
         logger.error("GITHUB_TOKEN environment variable is not set")
         return False
-    
+
     try:
         # Test token with a simple API call
         headers = {
             "Accept": "application/vnd.github.v3+json",
             "Authorization": f"token {github_token}"
         }
-        
+
         # Use a simple API call to validate the token
-        response = requests.get("https://api.github.com/user", headers=headers, timeout=10)
-        
+        response = requests.get(
+            "https://api.github.com/user", headers=headers, timeout=10
+        )
+
         if response.status_code == 200:
             logger.info("GitHub token is valid")
             return True
         else:
-            logger.error(f"GitHub token validation failed with status {response.status_code}")
+            logger.error(
+                f"GitHub token validation failed with status {response.status_code}"
+            )
             return False
-            
+
     except requests.exceptions.RequestException as e:
         logger.error(f"Error validating GitHub token: {e}")
         return False
@@ -58,7 +62,7 @@ def run_catalogue(file_path: str) -> int:
     if not validate_github_token():
         logger.error("Invalid or missing GITHUB_TOKEN. Exiting.")
         return 1
-    
+
     logger.info(f"Running model catalogue on file: {file_path}")
     catalogue = ModelCatalogue()
     success = True
@@ -105,7 +109,7 @@ def run_catalogue(file_path: str) -> int:
     return 0 if success else 1
 
 
-def configure_logging():
+def configure_logging() -> None:
     logger.remove()
     log_level_env = os.getenv("LOG_LEVEL", "0").strip()
     log_file = os.getenv("LOG_FILE", "").strip()

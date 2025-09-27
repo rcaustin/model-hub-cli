@@ -1,0 +1,10 @@
+# Development dependencies
+flake8>=6.0.0
+flake8-annotations>=3.0.0
+mypy>=1.0.0
+black>=23.0.0
+types-requests>=2.28.0
+pytest>=7.0.0
+
+# Include main requirements
+-r requirements.txt

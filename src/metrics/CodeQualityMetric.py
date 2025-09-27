@@ -212,9 +212,9 @@ class CodeQualityMetric(Metric):
         )
 
         doc_score: float = (
-            (0.05 if has_license else 0.0) +
-            (0.05 if has_readme else 0.0) +
-            (0.10 if has_contributing else 0.0)
+            (0.05 if has_license else 0.0)
+            + (0.05 if has_readme else 0.0)
+            + (0.10 if has_contributing else 0.0)
         )
 
         found_docs: List[str] = []

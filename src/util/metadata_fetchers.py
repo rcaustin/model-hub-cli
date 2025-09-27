@@ -17,7 +17,7 @@ class MetadataFetcher:
 class HuggingFaceFetcher(MetadataFetcher):
     """Fetch metadata from the Hugging Face API."""
 
-    def __init__(self, session: Optional[requests.Session] = None):
+    def __init__(self, session: Optional[requests.Session] = None) -> None:
         self.session = session or requests.Session()
         self.BASE_API_URL = "https://huggingface.co/api/models"
 
@@ -60,7 +60,7 @@ class GitHubFetcher(MetadataFetcher):
     def __init__(
         self, token: Optional[str] = None,
         session: Optional[requests.Session] = None
-    ):
+    ) -> None:
         self.token = token
         self.session = session or requests.Session()
         self.BASE_API_URL = "https://api.github.com/repos"
@@ -125,9 +125,10 @@ class GitHubFetcher(MetadataFetcher):
             logger.debug(f"Fetching GitHub repo info from: {repo_url}")
             repo_resp = self.session.get(repo_url, headers=headers, timeout=5)
             if repo_resp.ok:
-                metadata["clone_url"] = repo_resp.json().get("clone_url")
-                metadata["stargazers_count"] = repo_resp.json().get("stargazers_count", 0)
-                metadata["forks_count"] = repo_resp.json().get("forks_count", 0)
+                repo_data = repo_resp.json()  # Parse JSON once
+                metadata["clone_url"] = repo_data.get("clone_url")
+                metadata["stargazers_count"] = repo_data.get("stargazers_count", 0)
+                metadata["forks_count"] = repo_data.get("forks_count", 0)
 
                 logger.debug("GitHub repository data retrieved.")
                 logger.debug(f"clone_url : {metadata['clone_url']}")
@@ -142,7 +143,7 @@ class GitHubFetcher(MetadataFetcher):
 
             # Fetch commit activity
             commits_url = f"{self.BASE_API_URL}/{owner}/{repo}/commits"
-            params: dict[str, Any] = {"since": "30 days ago", "per_page": 100}  # Last 30 days
+            params: dict[str, Any] = {"since": "30 days ago", "per_page": 100}
             commits_resp = self.session.get(commits_url, params=params, headers=headers)
             if commits_resp.ok:
                 avg_daily_commits = len(commits_resp.json()) / 30
@@ -165,7 +166,7 @@ class GitHubFetcher(MetadataFetcher):
 class DatasetFetcher(MetadataFetcher):
     """Fetch metadata from the Hugging Face Datasets API."""
 
-    def __init__(self, session: Optional[requests.Session] = None):
+    def __init__(self, session: Optional[requests.Session] = None) -> None:
         self.session = session or requests.Session()
         self.BASE_API_URL = "https://huggingface.co/api/datasets"
 
@@ -177,7 +178,9 @@ class DatasetFetcher(MetadataFetcher):
         try:
             parsed = urlparse(dataset_url)
             if "huggingface.co" not in parsed.netloc:
-                logger.debug(f"DatasetFetcher received a non-Hugging Face URL: {dataset_url}")
+                logger.debug(
+                    f"DatasetFetcher received a non-Hugging Face URL: {dataset_url}"
+                )
                 return None
 
             path_parts = parsed.path.strip("/").split("/")
@@ -192,15 +195,18 @@ class DatasetFetcher(MetadataFetcher):
 
             response = self.session.get(api_url, timeout=5)
             if response.ok:
-                logger.debug(f"Hugging Face dataset metadata retrieved for '{dataset_id}'.")
+                logger.debug(
+                    f"Hugging Face dataset metadata retrieved for '{dataset_id}'."
+                )
                 return response.json()
             else:
                 logger.warning(
-                    "Failed to retrieve Hugging Face dataset metadata (HTTP {}) for {}.",
-                    response.status_code,
-                    dataset_url
+                    f"Failed to retrieve Hugging Face dataset metadata "
+                    f"(HTTP {response.status_code}) for {dataset_url}."
                 )
         except Exception as e:
-            logger.exception(f"Exception while fetching Hugging Face dataset metadata: {e}")
+            logger.exception(
+                f"Exception while fetching Hugging Face dataset metadata: {e}"
+            )
 
         return None

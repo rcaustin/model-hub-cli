@@ -4,15 +4,14 @@ from src.util.url_utils import URLSet
 
 
 def test_classify_url_valid():
-    assert url_utils.classify_url(
-        "https://huggingface.co/datasets/squad"
-    ) == "dataset"
-    assert url_utils.classify_url(
-        "https://huggingface.co/microsoft/DialoGPT-medium"
-    ) == "model"
-    assert url_utils.classify_url(
-        "https://github.com/huggingface/transformers"
-    ) == "code"
+    assert url_utils.classify_url("https://huggingface.co/datasets/squad") == "dataset"
+    assert (
+        url_utils.classify_url("https://huggingface.co/microsoft/DialoGPT-medium")
+        == "model"
+    )
+    assert (
+        url_utils.classify_url("https://github.com/huggingface/transformers") == "code"
+    )
 
 
 def test_classify_url_invalid():
@@ -94,7 +93,7 @@ def test_classify_urls_too_many_urls():
         "https://huggingface.co/microsoft/DialoGPT-medium",
         "https://github.com/huggingface/transformers",
         "https://huggingface.co/datasets/squad",
-        "https://example.com/extra"
+        "https://example.com/extra",
     ]
     with pytest.raises(ValueError, match="No more than 3 URLs allowed"):
         url_utils.classify_urls(urls)

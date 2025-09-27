@@ -21,9 +21,9 @@ class BusFactorMetric(Metric):
         author = ""
         if hf_metadata:
             author = (
-                hf_metadata.get("author") or
-                hf_metadata.get("id", "").split("/")[0] or
-                ""
+                hf_metadata.get("author")
+                or hf_metadata.get("id", "").split("/")[0]
+                or ""
             )
         logger.debug("Extracted author from HuggingFace metadata: '{}'", author)
 
