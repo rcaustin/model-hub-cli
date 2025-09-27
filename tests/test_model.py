@@ -27,6 +27,19 @@ def test_model_initialization_and_url_classification(sample_urls):
     assert model.codeLink.startswith("https://github.com/")
     assert model.datasetLink.startswith("https://huggingface.co/datasets/")
 
+    # assert model.modelLink.startswith("https://github.com/google-research/bert")
+    # assert model.codeLink.startswith(" https://huggingface.co/datasets/bookcorpus/bookcorpus"
+    # assert model.datasetLink.startswith("https://huggingface.co/google-bert/bert-base-uncased")
+
+    # assert model.modelLink.startswith(" ")
+    # assert model.codeLink.startswith(" ")
+    # assert model.datasetLink.startswith(" ")
+
+    # assert model.modelLink.startswith(" ")
+    # assert model.codeLink.startswith(" ")
+    # assert model.datasetLink.startswith(" ")
+
+
 
 def test_get_category_string(sample_urls):
     model = Model(sample_urls)
