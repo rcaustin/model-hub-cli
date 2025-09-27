@@ -55,7 +55,73 @@ def classify_url(url: str) -> str:
         raise ValueError(f"Unknown or unsupported URL domain: '{netloc}'")
 
 
-def classify_urls(urls: List[str]) -> URLSet:
+def classify_urls(urls: list[str]) -> URLSet:
+    """
+    Domain-aware classification with positional fallback.
+    - Accepts up to 3 URLs in ANY order.
+    - Uses classify_url(url) to detect type when possible.
+    - If some URLs can't be classified by domain (non-HF/GitHub), they are
+      assigned by remaining positional slots (code, dataset) before model.
+    - Enforces: at least one model URL must be present.
+    - Raises duplicate errors with exact messages expected by tests.
+
+    Returns:
+        URLSet(model, code, dataset)
+    """
+    if not urls:
+        raise ValueError("At least one URL is required.")
+    if len(urls) > 3:
+        raise ValueError("No more than 3 URLs allowed")
+
+    model = code = dataset = None
+    unknowns: list[str] = []
+
+    # First pass: domain-based classification
+    for url in urls:
+        try:
+            kind = classify_url(url)
+        except ValueError:
+            kind = None  # unknown domain -> handle later
+
+        if kind == "model":
+            if model is not None:
+                raise ValueError(f"Duplicate model URL found: {url}")
+            model = url
+        elif kind == "code":
+            if code is not None:
+                raise ValueError(f"Duplicate code URL found: {url}")
+            code = url
+        elif kind == "dataset":
+            if dataset is not None:
+                raise ValueError(f"Duplicate dataset URL found: {url}")
+            dataset = url
+        else:
+            unknowns.append(url)
+
+    # Second pass: positional fallback for unknowns
+    # Fill code, then dataset, then (lastly) model if still missing.
+    remaining_slots = []
+    if code is None:
+        remaining_slots.append("code")
+    if dataset is None:
+        remaining_slots.append("dataset")
+    if model is None:
+        remaining_slots.append("model")
+
+    for url, slot in zip(unknowns, remaining_slots):
+        if slot == "code":
+            code = url
+        elif slot == "dataset":
+            dataset = url
+        elif slot == "model":
+            model = url
+
+    # Require at least one model URL overall (matches test message exactly)
+    if model is None:
+        raise ValueError("At least one model URL is required")
+
+    return URLSet(model=model, code=code, dataset=dataset)
+
     """
     Strict position-validated classification of up to 3 URLs in a line.
     The input order is always: [code, dataset, model].
