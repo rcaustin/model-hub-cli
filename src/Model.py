@@ -2,8 +2,8 @@ import time
 import os
 from typing import Any, Dict, List, Optional, Union
 
-from Interfaces import ModelData
-from Metric import Metric
+from src.Interfaces import ModelData
+from src.Metric import Metric
 from util.metadata_fetchers import GitHubFetcher, HuggingFaceFetcher, DatasetFetcher
 from util.url_utils import URLSet, classify_urls
 
