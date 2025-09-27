@@ -4,7 +4,7 @@ import requests
 
 from loguru import logger
 
-from src.Model import Model
+from Model import Model
 from src.ModelCatalogue import ModelCatalogue
 
 
