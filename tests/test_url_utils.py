@@ -1,6 +1,7 @@
 import pytest
+import src.util.url_utils as url_utils
 from src.util import url_utils
-from src.util.url_utils import URLSet
+from src.util.url_utils import URLSet,classify_urls, parse_urls_by_position
 
 
 def test_classify_url_valid():

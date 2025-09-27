@@ -1,11 +1,22 @@
+# src/util/url_utils.py
 from collections import namedtuple
 from urllib.parse import urlparse
+from typing import Optional, List
 
+# Keep legacy field order used by the rest of the code:
+# URLSet(model, code, dataset)
 URLSet = namedtuple("URLSet", ["model", "code", "dataset"])
 
 _MISSING_TOKENS = {"", "none", "null", "na", "n/a"}
 
-def _normalize_missing_token(token: str | None) -> str | None:
+_EXPECTED_BY_SLOT = {
+    0: "code",     # 1st item
+    1: "dataset",  # 2nd item
+    2: "model",    # 3rd item
+}
+
+
+def _normalize_missing_token(token: Optional[str]) -> Optional[str]:
     """
     Trim and convert common 'missing' markers to None.
     """
@@ -14,33 +25,12 @@ def _normalize_missing_token(token: str | None) -> str | None:
     t = token.strip()
     return None if t.lower() in _MISSING_TOKENS else (t if t else None)
 
-def _log_if_domain_mismatch(slot: str, url: str | None) -> None:
-    """
-    Optional soft sanity check. Intentionally no-op for now;
-    replace prints with logging if you have a logger.
-    """
-    if not url:
-        return
-    host = urlparse(url).netloc.lower()
-    # Example hints you might log:
-    # if slot == "model" and host != "huggingface.co":
-    #     print(f"[warn] model URL host looks unusual: {host}")
-    return
-
-
 
 def classify_url(url: str) -> str:
     """
-    Classify a URL as one of [code, dataset, model] according to its location.
-
-    Args:
-        url (str): the URL to be classified
-
-    Returns:
-        str: one of ["model", "dataset", "code"]
-
-    Raises:
-        ValueError: if the URL is unrecognized, invalid, or malformed.
+    Domain-based probe for a single URL.
+    Returns: "model" | "dataset" | "code"
+    Raises: ValueError if URL is malformed or unsupported.
     """
     if not isinstance(url, str) or not url.strip():
         raise ValueError("Input must be a non-empty URL string.")
@@ -65,100 +55,80 @@ def classify_url(url: str) -> str:
         raise ValueError(f"Unknown or unsupported URL domain: '{netloc}'")
 
 
-def classify_urls(urls: list[str]) -> URLSet:
+def classify_urls(urls: List[str]) -> URLSet:
     """
-    Classify up to 3 URLs and return a namedtuple grouping the
-    model, code, and dataset URLs for convenient extraction.
+    Strict position-validated classification of up to 3 URLs in a line.
+    The input order is always: [code, dataset, model].
 
-    Args:
-        urls (list[str]): list of URLs (max length 3)
+    Behavior:
+      - Iterate exactly three times (slots 0..2).
+      - For each non-empty URL, call classify_url(url) to detect its type.
+      - Compare detected type with expected type for that slot:
+          slot 0 -> 'code', slot 1 -> 'dataset', slot 2 -> 'model'
+        If they don't match, raise a clear ValueError.
+      - Missing values ('', 'none', 'null', 'na', 'n/a') are allowed for slots
+        0 and 1, but slot 2 (model) is REQUIRED.
 
     Returns:
-        URLSet: namedtuple(code, dataset, model) with URLs
-
-    Raises:
-        ValueError: if invallid URLs, duplicates, or missing model URL
-    """
-
-
-    
-    if not urls:
-        raise ValueError("At least one URL is required.")
-    if len(urls) > 3:
-        raise ValueError("No more than 3 URLs allowed.")
-
-    model = code = dataset = None
-    unknowns: list[str] = []
-
-    # First pass: domain-based
-    for url in urls:
-        try:
-            kind = classify_url(url)
-        except ValueError:
-            kind = None
-
-
-
-        if kind == "model":
-            if model is not None:
-                raise ValueError(f"Duplicate model URL found in group: {url}")
-            model = url
-        elif kind == "code":
-            if code is not None:
-                raise ValueError(f"Duplicate code URL found in group: {url}")
-            code = url
-        elif kind == "dataset":
-            if dataset is not None:
-                raise ValueError(f"Duplicate dataset URL found in group: {url}")
-            dataset = url
-        else:
-            unknowns.append(url)
-
-    # Second pass: Positional fallback for unknowns
-    remaining_slots = []
-    if model is None:   remaining_slots.append("model")
-    if code is None:    remaining_slots.append("code")
-    if dataset is None: remaining_slots.append("dataset")
-
-    for url, slot in zip(unknowns, remaining_slots):
-        if slot == "model":   model = url
-        elif slot == "code":  code = url
-        elif slot == "dataset": dataset = url
-
-
-    if model is None:
-        raise ValueError("At least one model URL is required.")
-
-    return URLSet(model=model, code=code, dataset=dataset)
-
-
-
-#######################################################################
-def parse_urls_by_position(urls: list[str]) -> URLSet:
-    """
-    Positional parsing with guaranteed order: [code, dataset, model].
-    We DO NOT reshuffle based on domains; position wins. Missing entries
-    can be empty strings or 'none'/'null' tokens.
-
-    Returns:
-        URLSet(model, code, dataset)  # preserves legacy field order
+      URLSet(model, code, dataset)  # legacy field order used by callers
     """
     if not urls:
         raise ValueError("Expected 1–3 comma-separated items in order: code,dataset,model.")
     if len(urls) > 3:
         raise ValueError("At most 3 items allowed (code,dataset,model).")
 
-    # Pad to length three so callers can pass 1 or 2 items
     padded = (urls + ["", "", ""])[:3]
-
     code_url    = _normalize_missing_token(padded[0])
     dataset_url = _normalize_missing_token(padded[1])
     model_url   = _normalize_missing_token(padded[2])
 
-    # Optional soft checks; never reshuffle
-    _log_if_domain_mismatch("code", code_url)
-    _log_if_domain_mismatch("dataset", dataset_url)
-    _log_if_domain_mismatch("model", model_url)
+    # Enforce required model (3rd slot)
+    if model_url is None:
+        raise ValueError("Model URL (3rd position) is required.")
+
+    # Validate each non-empty URL by domain/type vs expected slot
+    triplet = [code_url, dataset_url, model_url]
+    for idx, url in enumerate(triplet):
+        expected = _EXPECTED_BY_SLOT[idx]  # 'code' | 'dataset' | 'model'
+        if url is None:
+            # Missing is allowed for slots 0..1 only
+            if idx < 2:
+                continue
+            # idx == 2 handled above (required)
+        try:
+            detected = classify_url(url) if url is not None else None
+        except ValueError as e:
+            # If it's a known-bad URL string (malformed/unsupported), surface it.
+            # This keeps validation strict as requested.
+            raise ValueError(
+                f"Invalid {expected} URL in position {idx+1}: {url!r} ({e})"
+            ) from e
+
+        if detected is not None and detected != expected:
+            pos_name = ["code (1st)", "dataset (2nd)", "model (3rd)"][idx]
+            raise ValueError(
+                f"URL in {pos_name} slot appears to be '{detected}': {url}"
+            )
+
+    # Return in legacy field order
+    return URLSet(model=model_url, code=code_url, dataset=dataset_url)
+
+
+# Optional: keep a pure positional parser (if other parts still import it)
+def parse_urls_by_position(urls: List[str]) -> URLSet:
+    """
+    Pure positional mapping without domain validation. Kept for compatibility.
+    Input order: [code, dataset, model].
+    """
+    if not urls:
+        raise ValueError("Expected 1–3 comma-separated items in order: code,dataset,model.")
+    if len(urls) > 3:
+        raise ValueError("At most 3 items allowed (code,dataset,model).")
+
+    padded = (urls + ["", "", ""])[:3]
+    code_url    = _normalize_missing_token(padded[0])
+    dataset_url = _normalize_missing_token(padded[1])
+    model_url   = _normalize_missing_token(padded[2])
 
     if model_url is None:
         raise ValueError("Model URL (3rd position) is required.")

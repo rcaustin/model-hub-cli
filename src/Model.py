@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional, Union
 from src.Interfaces import ModelData
 from src.Metric import Metric
 from src.util.metadata_fetchers import GitHubFetcher, HuggingFaceFetcher, DatasetFetcher
-from src.util.url_utils import URLSet, classify_urls, parse_urls_by_position
+from src.util.url_utils import URLSet, classify_urls
 
 
 
@@ -22,7 +22,7 @@ class Model(ModelData):
         urls: List[str]
     ):
         # Positional parsing (code, dataset, model) -> URLSet(model, code, dataset)
-        urlset: URLSet = parse_urls_by_position(urls)
+        urlset: URLSet = classify_urls(urls)
         self.modelLink: str = urlset.model
         self.codeLink: Optional[str] = urlset.code
         self.datasetLink: Optional[str] = urlset.dataset
