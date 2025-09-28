@@ -36,10 +36,8 @@ from src.ModelData import ModelData
 
 
 class LicenseMetric(Metric):
-    # 1.0: License is known and fully compatible
-    # 0.5: License is unknown, ambiguous, or cannot be determined
-    # 0.0: License is known and incompatible
-    LICENSE_COMPATIBILITY : Dict[str, float] = {
+    LICENSE_COMPATIBILITY: Dict[str, float] = {
+        # Compatible (1.0)
         "mit": 1.0,
         "bsd-2-clause": 1.0,
         "bsd-3-clause": 1.0,
@@ -48,10 +46,12 @@ class LicenseMetric(Metric):
         "gpl-2.0-or-later": 1.0,
         "apache-2.0": 1.0,
 
+        # Ambiguous / Limited (0.5)
         "gpl-2.0": 0.5,
         "mpl-2.0": 0.5,
         "unlicense": 0.5,
 
+        # Incompatible (0.0)
         "gpl-3.0": 0.0,
         "lgpl-3.0": 0.0,
         "agpl-3.0": 0.0,
@@ -62,41 +62,31 @@ class LicenseMetric(Metric):
         """
         Evaluate the license compatibility of the model using cached metadata.
 
-        Priority:
-            1. HuggingFace model license (via hf_metadata)
-            2. GitHub repo license (via github_metadata)
-
         Returns:
             float: Score from 0.0 (incompatible) to 1.0 (fully compatible).
         """
         logger.debug("Evaluating LicenseMetric...")
-        license_id : str = "unknown"  # Default to unknown
 
-        # Step 1: Try HuggingFace metadata
-        if model.modelLink and "huggingface.co" in model.modelLink:
-            logger.debug("Checking HuggingFace metadata for license...")
-            hf_meta = model.hf_metadata
-            if hf_meta:
-                license_id = hf_meta.get("cardData", {}).get("license", "unknown")
-                if license_id:
-                    logger.debug(
-                        "License found in HuggingFace metadata: {}",
-                        license_id
-                    )
+        license_id: str = "unknown"
 
-        # Step 2: Fallback to GitHub metadata
-        if not license_id and model.codeLink and "github.com" in model.codeLink:
-            logger.debug("Falling back to GitHub metadata for license...")
+        # Step 1: HuggingFace metadata
+        hf_meta = model.hf_metadata
+        if hf_meta:
+            license_id = hf_meta.get("cardData", {}).get("license", "unknown")
+            if license_id and license_id != "unknown":
+                logger.debug("License found in HuggingFace metadata: {}", license_id)
+
+        # Step 2: Fallback to GitHub if needed
+        if license_id == "unknown":
             gh_meta = model.github_metadata
             if gh_meta:
-                license_info = gh_meta if gh_meta else {}
-                license_id = license_info.get("license", "unknown")
-                if license_id:
-                    logger.debug(
-                        "License found in GitHub metadata: {}", license_id
-                    )
+                license_id = gh_meta.get("license", "unknown")
+                if license_id and license_id != "unknown":
+                    logger.debug("License found in GitHub metadata: {}", license_id)
 
-        # Step 3: Map license to score
-        license_score : float = self.LICENSE_COMPATIBILITY.get(license_id.lower(), 0.5)
-        logger.debug("LicenseMetric: {} -> {}", license_id or "UNKNOWN", license_score)
+        # Step 3: Map to score
+        license_key = license_id.lower() if license_id else "unknown"
+        license_score = self.LICENSE_COMPATIBILITY.get(license_key, 0.5)
+
+        logger.debug("LicenseMetric: '{}' → score {}", license_key, license_score)
         return license_score
