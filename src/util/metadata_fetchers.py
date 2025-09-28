@@ -50,6 +50,7 @@ from typing import Any, Dict, Optional
 from urllib.parse import urlparse
 
 import requests
+from huggingface_hub import hf_hub_download
 from loguru import logger
 
 
@@ -88,8 +89,9 @@ class HuggingFaceFetcher(MetadataFetcher):
 
         organization, model_id = parts[0], parts[1]
         api_url = f"{self.BASE_API_URL}/{organization}/{model_id}"
+        repo_id = f"{organization}/{model_id}"
 
-        # Fetch Metadata from Hugging Face API
+        # Fetch General Model Metadata from Hugging Face API
         try:
             logger.debug(f"Fetching HF metadata from: {api_url}")
             resp = self.session.get(api_url, timeout=5)
@@ -104,6 +106,26 @@ class HuggingFaceFetcher(MetadataFetcher):
                 )
         except Exception as e:
             logger.exception(f"Exception fetching HF metadata: {e}")
+
+        # Fetch README.md
+        try:
+            readme_path = hf_hub_download(repo_id=repo_id, filename="README.md")
+            with open(readme_path, "r", encoding="utf-8") as f:
+                metadata["readme"] = f.read()
+                logger.debug("Successfully fetched README.md from Hugging Face")
+        except Exception as e:
+            logger.warning(f"Failed to fetch README.md via huggingface_hub: {e}")
+
+        # Fetch model_index.json
+        try:
+            model_index_path = hf_hub_download(
+                repo_id=repo_id, filename="model_index.json"
+            )
+            with open(model_index_path, "r", encoding="utf-8") as f:
+                metadata["model_index"] = f.read()
+                logger.debug("Successfully fetched model_index.json from Hugging Face")
+        except Exception as e:
+            logger.warning(f"Failed to fetch model_index.json via huggingface_hub: {e}")
 
         return metadata
 
