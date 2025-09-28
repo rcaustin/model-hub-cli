@@ -128,5 +128,5 @@ class ModelCatalogue:
             "code_quality_latency": model.getLatency("CodeQualityMetric"),
         }
 
-        # Convert dictionary to NDJSON (one key-value pair per line)
+        # Convert model evaluation to a single NDJSON line
         return json.dumps(ndjson_obj, separators=(",", ":"))
