@@ -59,8 +59,8 @@ Testing Notes
 
 Environment
 -----------
-- ``GITHUB_TOKEN`` (optional) may be present inside ``metadata`` or the context
-  so underlying fetchers can improve rate limits and completeness.
+- ``GITHUB_TOKEN`` (REQUIRED) must be present so underlying fetchers can improve 
+  rate limits and completeness.
 
 Thread-Safety
 -------------
@@ -70,12 +70,15 @@ Thread-Safety
 
 import time
 import os
+import time
 from typing import Any, Dict, List, Optional, Union
+
+from loguru import logger
 
 from src.Interfaces import ModelData
 from src.Metric import Metric
-from src.util.metadata_fetchers import GitHubFetcher, HuggingFaceFetcher, DatasetFetcher
-from src.util.url_utils import URLSet, classify_urls
+from src.util.metadata_fetchers import (DatasetFetcher, GitHubFetcher,
+                                        HuggingFaceFetcher)
 
 
 class Model(ModelData):
@@ -83,11 +86,14 @@ class Model(ModelData):
         self,
         urls: List[str]
     ) -> None:
-        # Extract and Classify URLs
-        urlset: URLSet = classify_urls(urls)
-        self.modelLink: str = urlset.model
-        self.codeLink: Optional[str] = urlset.code
-        self.datasetLink: Optional[str] = urlset.dataset
+        # Extract URLs
+        self.codeLink: Optional[str] = urls[0] if urls[0] else None
+        self.datasetLink: Optional[str] = urls[1] if urls[1] else None
+        self.modelLink: str = urls[2]
+
+        # Validate Model URL Exists
+        if not self.modelLink:
+            raise ValueError("Model URL is required")
 
         # Metadata Caching
         self._hf_metadata: Optional[Dict[str, Any]] = None
@@ -97,20 +103,17 @@ class Model(ModelData):
         # Get GitHub token from environment (validated at startup)
         self._github_token: Optional[str] = os.getenv("GITHUB_TOKEN")
 
-        """
-        evaluations maps metric names to their scores.
-        Scores can be a float or a dictionary of floats for complex metrics.
-        evaluationsLatency maps metric names to the time taken to compute them.
-        """
+        # evaluations: maps metric names to their scores
+        #   scores: a float or a dictionary of floats for complex metrics (SizeMetric)
+        # evaluationsLatency: maps metric names to the time taken to compute them
         self.evaluations: dict[str, Union[float, dict[str, float]]] = {}
         self.evaluationsLatency: dict[str, float] = {}
 
     @property
     def name(self) -> str:
         try:
-            hf_meta = self.hf_metadata  # This could be None
-            if hf_meta:  # Check for None first
-                return hf_meta.get("id", "").split("/")[1]
+            if self.hf_metadata:
+                return self.hf_metadata.get("id", "").split("/")[1]
         except (AttributeError, IndexError):
             pass
         return "UNKNOWN_MODEL"
@@ -125,22 +128,15 @@ class Model(ModelData):
     @property
     def github_metadata(self) -> Optional[Dict[str, Any]]:
         if self._github_metadata is None:
-            # Pass the validated GitHub token to the fetcher
             fetcher = GitHubFetcher(token=self._github_token)
-            if self.codeLink:
-                self._github_metadata = fetcher.fetch_metadata(self.codeLink)
-            else:
-                self._github_metadata = None  # No code link available
+            self._github_metadata = fetcher.fetch_metadata(self.codeLink)
         return self._github_metadata
 
     @property
     def dataset_metadata(self) -> Optional[Dict[str, Any]]:
         if self._dataset_metadata is None:
             fetcher = DatasetFetcher()
-            if self.datasetLink:
-                self._dataset_metadata = fetcher.fetch_metadata(self.datasetLink)
-            else:
-                self._dataset_metadata = None  # No dataset link available
+            self._dataset_metadata = fetcher.fetch_metadata(self.datasetLink)
         return self._dataset_metadata
 
     def getScore(
@@ -172,7 +168,7 @@ class Model(ModelData):
     def getCategory(self) -> str:
         return "MODEL"
 
-    def computeNetScore(self) -> float:
+    def computeNetScore(self) -> None:
         def safe_score(key: str) -> float:
             val = self.evaluations.get(key)
             if key == "SizeMetric":
@@ -180,14 +176,15 @@ class Model(ModelData):
                 if isinstance(val, dict) and val:
                     return sum(val.values()) / len(val)
                 else:
+                    logger.warning(f"SizeMetric score is not a valid dict: {val}")
                     return 0.0
             else:
                 if isinstance(val, dict):
                     return sum(val.values()) / len(val) if val else 0.0
                 return val if val is not None else 0.0
 
+        # Compute Net Score and Net Latency
         license_score = safe_score("LicenseMetric")
-
         weighted_sum = (
             0.2 * safe_score("SizeMetric")
             + 0.3 * safe_score("RampUpMetric")
@@ -197,14 +194,8 @@ class Model(ModelData):
             + 0.1 * safe_score("CodeQualityMetric")
             + 0.1 * safe_score("PerformanceClaimsMetric")
         )
-
-        net_score = license_score * weighted_sum
-
-        self.evaluations["NetScore"] = net_score
-        self.evaluationsLatency["NetScore"] = 0.0  # Derived metric, no latency
+        self.evaluations["NetScore"] = license_score * weighted_sum
         self.evaluationsLatency["NetScore"] = sum(
             latency for key, latency in self.evaluationsLatency.items()
             if key != "NetScore"
         )
-
-        return net_score
