@@ -31,19 +31,24 @@ class RampUpMetric(Metric):
             )
             return 0.0
 
-        combined_text = """Evaluate the following AI model's README and index text
-            to determine a ramp-up time metric representing how difficult it would
-            be for a new team to learn and apply the model to develop new products
-            or services. The metric should consist of a single floating-point value
-            between 0.0 and 1.0, where 0.0 is extremely difficult to learn and 1.0
-            is extremely easy for a new team to learn.
+        combined_text = """You are evaluating how easy it is for a new developer team
+            to understand and use an AI model, based only on the provided README and
+            model index.
 
-            Specifically you should add +.20 for each of the following:
-              - a clear and helpful README
-              - clear installation instructions
-              - usage examples
-              - a dataset description
-              - a training script\n\n"""
+            Score the model's "ramp-up ease" from 0.0 (extremely difficult to learn)
+            to 1.0 (extremely easy to learn). Your output must contain only a single
+            float on the first line, with no additional explanation or commentary.
+
+            To determine the score, award up to 0.20 points each for:
+            - A clear and helpful README
+            - Clear installation instructions
+            - Usage examples
+            - A dataset description
+            - A training script
+
+            Again, respond with a single float (e.g., 0.60) on the first line. You may
+            include justifications *after* the score if needed, but only the first
+            line will be used as the final metric.\n\n"""
         combined_text += "\n\n".join(filter(None, [readme_text, model_index_text]))
         score = self._query_purdue_ai(combined_text)
 
@@ -121,11 +126,12 @@ class RampUpMetric(Metric):
             )
             response.raise_for_status()
             data = response.json()
-            score = data.get("ramp_up_score", 0.0)
+            score = data["choices"][0]["message"]["content"].strip()
+            score = float(score.splitlines()[0])  # Extract first line and convert
             if not (0.0 <= score <= 1.0):
                 logger.warning(f"Received out-of-range score: {score}, clamping.")
                 score = max(0.0, min(1.0, score))
             return score
         except Exception as e:
-            logger.error(f"Failed to get ramp-up score from Purdue AI API: {e}")
+            logger.warning(f"Failed to get ramp-up score from Purdue AI API: {e}")
             return 0.0
