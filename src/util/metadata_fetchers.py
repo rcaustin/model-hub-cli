@@ -55,6 +55,7 @@ from loguru import logger
 
 class MetadataFetcher:
     def fetch_metadata(self, url: Optional[str]) -> Dict[str, Any]:
+        """Fetch metadata from the given URL."""
         raise NotImplementedError("Must be implemented by subclasses.")
 
 
@@ -64,6 +65,7 @@ class HuggingFaceFetcher(MetadataFetcher):
         self.BASE_API_URL = "https://huggingface.co/api/models"
 
     def fetch_metadata(self, url: Optional[str]) -> Dict[str, Any]:
+        """Fetch Hugging Face model metadata."""
         metadata = {}
 
         # Verify URL Exists
@@ -119,6 +121,7 @@ class GitHubFetcher(MetadataFetcher):
         self.BASE_API_URL = "https://api.github.com/repos"
 
     def fetch_metadata(self, url: Optional[str]) -> Dict[str, Any]:
+        """Fetch GitHub repository metadata."""
         metadata = {}
 
         # Verify URL Exists
@@ -188,12 +191,11 @@ class GitHubFetcher(MetadataFetcher):
             # Fetch recent commit activity
             commits_url = f"{self.BASE_API_URL}/{owner}/{repo}/commits"
             logger.debug(f"Fetching GitHub commits from: {commits_url}")
-            params = {"since": "30 days ago", "per_page": 100}
+            params = {"per_page": 100}
             resp = self.session.get(commits_url, params=params, headers=headers)
             if resp.ok:
                 commits = resp.json()
-                avg_daily = len(commits) / 30
-                metadata["avg_daily_commits_30d"] = avg_daily
+                metadata["commits_count"] = len(commits)
             else:
                 logger.warning(
                     f"Failed to fetch commits (HTTP {resp.status_code}) for {url}"
@@ -206,6 +208,7 @@ class GitHubFetcher(MetadataFetcher):
 
 
 class DatasetFetcher(MetadataFetcher):
+    """Fetches dataset metadata from Hugging Face datasets API."""
     def __init__(self, session: Optional[requests.Session] = None) -> None:
         self.session = session or requests.Session()
         self.BASE_API_URL = "https://huggingface.co/api/datasets"
