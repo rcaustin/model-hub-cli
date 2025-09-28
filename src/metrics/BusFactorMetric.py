@@ -76,10 +76,11 @@ class BusFactorMetric(Metric):
         logger.debug("Extracted author from HuggingFace metadata: '{}'", author)
 
         # Return full score if author is a large company
-        if author in self.LARGE_COMPANIES:
+        author = author.lower()
+        if any(company in author for company in self.LARGE_COMPANIES):
             logger.debug(
-                "Author '{}' is known large company, returning full score 1.0",
-                author
+                f"Author '{author}' contains known large company substring, "
+                f"returning full score 1.0",
             )
             return 1.0
 
