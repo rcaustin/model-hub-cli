@@ -1,7 +1,7 @@
+from unittest.mock import patch
+
 from src.Metric import Metric
 from src.Model import Model
-
-from unittest.mock import patch
 
 
 class DummyMetric(Metric):

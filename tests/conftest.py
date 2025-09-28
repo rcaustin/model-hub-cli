@@ -73,9 +73,9 @@ def sample_urls() -> list[str]:
     Used to simulate bundled input.
     """
     return [
-        "https://huggingface.co/datasets/squad",
-        "https://github.com/huggingface/transformers",
-        "https://huggingface.co/microsoft/DialoGPT-medium",
+        'https://github.com/huggingface/transformers',       # codeLink
+        'https://huggingface.co/datasets/squad',             # datasetLink
+        'https://huggingface.co/microsoft/DialoGPT-medium'   # modelLink
     ]
 
 
