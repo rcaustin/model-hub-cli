@@ -1,229 +1,202 @@
 """
-CodeQualityMetric - Evaluates code quality based on GitHub repository analysis.
+CodeQualityMetric.py
+====================
 
-Score Breakdown (Total: 1.0):
-- Code Popularity (0.2 max):
-  - Stars: 0.01 per 50 stars (max 0.1)
-  - Forks: 0.01 per 10 forks (max 0.1)
-- Testing Quality (0.3 max):
-  - Based on test-to-source file ratio
-  - Full score when test files >= source files
-- Commit Activity (0.3 max):
-  - 0.05 per daily commit (30-day average)
-- Documentation (0.2 max):
-  - LICENSE file: 0.05
-  - README file: 0.05
-  - CONTRIBUTING file: 0.10
+Evaluates code quality based on GitHub repository analysis.
 
-Requirements:
-- GitHub metadata with clone_url for full analysis
-- Returns 0.0 if no GitHub metadata available
-- Popularity score calculated even without clone_url
+Score Breakdown (Total: 1.0)
+----------------------------
+- Code Popularity (stars, forks): up to 0.2
+- Test Suite Coverage (test files vs source files): up to 0.3
+- Commit Frequency (avg daily commits): up to 0.3
+- Documentation presence (LICENSE, README, CONTRIBUTING): up to 0.2
+
+Requirements
+------------
+- GitHub metadata with repository stats and clone URL
+- Git installed and available in the environment
+- Python modules: pathlib, subprocess, GitPython
+
+Limitations
+-----------
+- Cloning may be slow or fail due to access or network issues
+- Test file detection depends on naming and structure
+- Documentation score is basic (file presence only)
+- Git subprocess usage may pose security risks
 """
 
-import subprocess
+import os
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List
 
+from git import Repo
+from git.exc import GitCommandError, GitError
 from loguru import logger
 
-from src.Interfaces import ModelData
+from src.ModelData import ModelData
 from src.Metric import Metric
 
 
 class CodeQualityMetric(Metric):
+    """
+    Evaluates code quality using GitHub metadata and repository content analysis.
+    """
+
+    def __init__(self):
+        self.temp_dirs: List[str] = []
+
     def evaluate(self, model: ModelData) -> float:
+        """
+        Evaluate code quality for the given model.
+
+        Args:
+            model: ModelData object containing URLs and metadata
+
+        Returns:
+            float: Code quality score from 0.0 to 1.0
+        """
         logger.info("Evaluating CodeQualityMetric...")
 
-        gh_meta: Optional[Dict[str, Any]] = model.github_metadata
-        if not gh_meta:
-            logger.warning("No GitHub metadata available for code quality evaluation")
+        if not getattr(model, "_github_metadata", None):
+            logger.info("CodeQualityMetric: No GitHub metadata found → 0.0")
             return 0.0
 
-        # Code Popularity (+0.2)
-        stars: int = gh_meta.get("stargazers_count", 0)
-        forks: int = gh_meta.get("forks_count", 0)
-        popularity_score: float = (
-            min((stars // 50) * 0.01, 0.1) + min((forks // 10) * 0.01, 0.1)
-        )
-        logger.debug(
-            f"Code popularity: {stars} stars, {forks} forks → score: {popularity_score}"
-        )
+        gh_meta = model._github_metadata
+        clone_url = gh_meta.get("clone_url")
 
-        # Clone once and get both testing (+0.3) and documentation (+0.2) scores
-        test_score: float
-        doc_score: float
-        test_score, doc_score = self._clone_and_analyze(gh_meta)
+        popularity_score = self._calculate_popularity_score(gh_meta)
+        commit_score = self._calculate_commit_score(gh_meta)
 
-        # Commit Frequency (+0.3)
-        daily_commits: float = gh_meta.get("avg_daily_commits_30d", 0)
-        commit_score: float = min(daily_commits * 0.05, 0.3)
-        logger.debug(
-            f"Commit frequency: {daily_commits} daily commits → score: {commit_score}"
-        )
-
-        # Total score capped at 1.0
-        total_score: float = popularity_score + test_score + commit_score + doc_score
-        final_score: float = min(total_score, 1.0)
-
-        logger.info(
-            f"CodeQualityMetric final score: {final_score} "
-            f"(popularity: {popularity_score}, test: {test_score}, "
-            f"commit: {commit_score}, doc: {doc_score})"
-        )
-
-        return final_score
-
-    def _clone_and_analyze(self, gh_meta: Dict[str, Any]) -> Tuple[float, float]:
-        """Clone repo once and return (test_score, doc_score)."""
-        clone_url: Optional[str] = gh_meta.get("clone_url")
         if not clone_url:
-            logger.warning("No clone URL available in GitHub metadata")
-            return 0.0, 0.0
-
-        logger.info(f"Starting repository analysis for: {clone_url}")
-
-        with tempfile.TemporaryDirectory() as temp_dir:
-            logger.debug(f"Created temporary directory: {temp_dir}")
-
-            if self._clone_repository(clone_url, temp_dir):
-                logger.info("Repository cloned successfully, analyzing files...")
-
-                # Robust Test Suite (+0.3)
-                test_files: int = self._count_test_files(temp_dir)
-                source_files: int = self._count_source_files(temp_dir)
-                test_score: float = 0.0
-                if source_files > 0:
-                    test_ratio: float = min(test_files / source_files, 1.0)
-                    test_score = test_ratio * 0.3
-                    logger.debug(
-                        f"Test analysis: {test_files} test files, "
-                        f"{source_files} source files "
-                        f"→ ratio: {test_ratio:.2f}, score: {test_score}"
-                    )
-                else:
-                    logger.warning("No source files found in repository")
-
-                # Documentation (+0.2)
-                doc_score: float = self._evaluate_documentation(temp_dir)
-
-                logger.info(
-                    f"Repository analysis complete. Test score: {test_score}, "
-                    f"Doc score: {doc_score}"
-                )
-                return test_score, doc_score
-            else:
-                logger.error("Failed to clone repository")
-                return 0.0, 0.0
-
-    def _clone_repository(self, clone_url: str, temp_dir: str) -> bool:
-        """Clone repository to temp directory. Returns True if successful."""
-        logger.debug(f"Cloning repository: {clone_url} → {temp_dir}")
+            total = popularity_score + commit_score
+            logger.info(
+                "CodeQualityMetric: No clone URL, returning base score {:.3f}", total
+            )
+            return min(total, 1.0)
 
         try:
-            # TODO: Should not be using the "git" shell command!!
-            subprocess.run(
-                [
-                    'git', 'clone',
-                    '--depth', '1',
-                    clone_url,
-                    temp_dir
-                ],
-                check=True,
-                capture_output=True,
-                timeout=30,
-                text=True
-            )
-            logger.debug("Git clone completed successfully")
-            return True
-        except subprocess.TimeoutExpired:
-            logger.error(f"Git clone timed out after 30 seconds for {clone_url}")
-            return False
-        except subprocess.CalledProcessError as e:
-            logger.error(f"Git clone failed for {clone_url}: {e.stderr}")
-            return False
+            with tempfile.TemporaryDirectory() as temp_dir:
+                if self._clone_repository(clone_url, temp_dir):
+                    test_score, doc_score = self._clone_and_analyze(temp_dir)
+                    total = (
+                        popularity_score + commit_score + test_score + doc_score
+                    )
+                    logger.info(
+                        "CodeQualityMetric: Full analysis score → {:.3f}", total
+                    )
+                    return min(total, 1.0)
+                else:
+                    logger.warning(
+                        "CodeQualityMetric: Clone failed, returning base score only"
+                    )
+                    total = popularity_score + commit_score
+                    return min(total, 1.0)
         except Exception as e:
-            logger.error(f"Unexpected error during git clone: {e}")
-            return False
+            logger.error("CodeQualityMetric: Exception during eval: {}", e)
+            total = popularity_score + commit_score
+            return min(total, 1.0)
+
+    def _calculate_popularity_score(self, gh_meta: Dict[str, Any]) -> float:
+        """Calculate popularity score based on stars and forks."""
+        stars = gh_meta.get("stargazers_count", 0)
+        forks = gh_meta.get("forks_count", 0)
+
+        star_score = min(stars / 50 * 0.01, 0.1)
+        fork_score = min(forks / 10 * 0.01, 0.1)
+
+        return star_score + fork_score
+
+    def _calculate_commit_score(self, gh_meta: Dict[str, Any]) -> float:
+        """Calculate commit activity score from average daily commits."""
+        avg_commits = gh_meta.get("avg_daily_commits_30d", 0)
+        return min(avg_commits * 0.05, 0.3)
+
+    def _clone_repository(self, clone_url: str, temp_dir: str) -> bool:
+        """Clone a repository into the given directory. Returns True if successful."""
+        logger.debug("Cloning repo: {} → {}", clone_url, temp_dir)
+        try:
+            Repo.clone_from(clone_url, temp_dir, depth=1)
+            logger.debug("Clone succeeded.")
+            return True
+        except GitCommandError as e:
+            logger.error("GitCommandError cloning {}: {}", clone_url, e)
+        except GitError as e:
+            logger.error("GitError cloning {}: {}", clone_url, e)
+        except Exception as e:
+            logger.error("Unexpected error cloning {}: {}", clone_url, e)
+        return False
+
+    def _clone_and_analyze(self, repo_path: str) -> tuple[float, float]:
+        """Analyze the cloned repository and return (test_score, doc_score)."""
+        test_score = self._evaluate_testing_quality(repo_path)
+        doc_score = self._evaluate_documentation(repo_path)
+        return test_score, doc_score
+
+    def _evaluate_testing_quality(self, repo_path: str) -> float:
+        """Evaluate testing quality based on ratio of test to source files."""
+        test_files = self._count_test_files(repo_path)
+        source_files = self._count_source_files(repo_path)
+
+        if source_files == 0:
+            return 0.0
+
+        ratio = test_files / source_files
+        return min(ratio * 0.3, 0.3)
 
     def _count_test_files(self, repo_path: str) -> int:
-        """Count test files in test directories."""
-        logger.debug("Counting test files...")
-
-        test_patterns: List[str] = [
-            'tests/**/*.py',
-            'test/**/*.py'
-        ]
-
-        count: int = 0
-        repo: Path = Path(repo_path)
-
-        for pattern in test_patterns:
-            pattern_matches: List[Path] = list(repo.glob(pattern))
-            pattern_count: int = len(pattern_matches)
-            count += pattern_count
-            if pattern_count > 0:
-                logger.debug(f"Pattern '{pattern}' matched {pattern_count} files")
-
-        logger.debug(f"Total test files found: {count}")
+        """Count Python test files based on common directory patterns."""
+        test_patterns = ["tests/**/*.py", "test/**/*.py"]
+        count = sum(
+            len(list(Path(repo_path).glob(pattern))) for pattern in test_patterns
+        )
         return count
 
     def _count_source_files(self, repo_path: str) -> int:
-        """Count source files excluding test/doc directories."""
-        logger.debug("Counting source files...")
-
-        repo: Path = Path(repo_path)
-        exclude_dirs: set[str] = {
-            'tests', 'test', 'docs', 'examples', '.git', '__pycache__'
+        """Count source files based on extensions in non-test folders."""
+        source_extensions = {
+            ".py", ".js", ".ts", ".java", ".cpp", ".c", ".h", ".hpp", ".cs", ".go",
+            ".rs", ".php", ".rb", ".swift", ".kt", ".scala"
         }
 
-        count: int = 0
-        excluded_count: int = 0
-
-        for py_file in repo.rglob('*.py'):
-            if any(excl in py_file.parts for excl in exclude_dirs):
-                excluded_count += 1
-                continue
-            count += 1
-
-        logger.debug(f"Source files found: {count}, excluded: {excluded_count}")
+        count = 0
+        for root, dirs, files in os.walk(repo_path):
+            dirs[:] = [
+                d for d in dirs
+                if not d.startswith(".")
+                and d not in {
+                    "node_modules", "venv", "__pycache__", "build", "dist",
+                    "tests", "test"
+                }
+            ]
+            for file in files:
+                if Path(file).suffix.lower() in source_extensions:
+                    count += 1
         return count
 
     def _evaluate_documentation(self, repo_path: str) -> float:
-        """Check for documentation files in cloned repo."""
-        logger.debug("Evaluating documentation files...")
+        """Evaluate documentation quality based on presence of key files."""
+        logger.debug("Evaluating documentation in: {}", repo_path)
+        score = 0.0
+        found_docs = []
 
-        repo: Path = Path(repo_path)
-
-        # Check for license file
-        has_license: bool = (
-            any(repo.glob("LICENSE*")) or any(repo.glob("license*"))
-        )
-
-        # Check for README
-        has_readme: bool = (
-            any(repo.glob("README*")) or any(repo.glob("readme*"))
-        )
-
-        # Check for CONTRIBUTING
-        has_contributing: bool = (
-            any(repo.glob("CONTRIBUTING*")) or any(repo.glob("contributing*"))
-        )
-
-        doc_score: float = (
-            (0.05 if has_license else 0.0) +
-            (0.05 if has_readme else 0.0) +
-            (0.10 if has_contributing else 0.0)
-        )
-
-        found_docs: List[str] = []
-        if has_license:
+        if any(Path(repo_path).glob("LICENSE*")) or any(
+            Path(repo_path).glob("license*")
+        ):
+            score += 0.05
             found_docs.append("LICENSE")
-        if has_readme:
+
+        if any(Path(repo_path).glob("README*")) or any(
+            Path(repo_path).glob("readme*")
+        ):
+            score += 0.05
             found_docs.append("README")
-        if has_contributing:
+
+        if any(Path(repo_path).glob("CONTRIBUTING*")) or any(
+            Path(repo_path).glob("contributing*")
+        ):
+            score += 0.10
             found_docs.append("CONTRIBUTING")
 
-        logger.debug(f"Documentation found: {found_docs} → score: {doc_score}")
-        return doc_score
+        logger.debug("Found docs: {} → doc score: {}", found_docs, score)
+        return score

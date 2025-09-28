@@ -1,13 +1,47 @@
-from src.Interfaces import ModelData
+"""
+SizeMetric.py
+=============
+
+Evaluates model memory compatibility across common hardware platforms.
+
+Overview
+--------
+The `SizeMetric` checks how well a model fits in memory on devices like Raspberry Pi,
+Jetson Nano, desktop GPUs, and AWS servers. It returns a score between 0.0 and 1.0 for
+each device, based on how much memory is left after loading the model.
+
+Responsibilities
+----------------
+- Extract parameter count and tensor dtype from Hugging Face metadata.
+- Estimate model size in GB using parameter count and dtype precision.
+- Compute per-device compatibility scores based on available memory.
+- Return a dictionary mapping device names to float scores.
+
+Key Methods
+-----------
+- `evaluate(model: ModelData) -> dict[str, float]`: Main entry point.
+- `_get_model_size(model)`: Calculates model size in GB.
+- `_extract_bytes_from_dtype(metadata)`: Parses dtype to get bytes per param.
+- `_get_parameter_count(metadata)`: Tries multiple fields to infer param count.
+- `_extract_params_from_name(name)`: Fallback using model name patterns.
+
+Notes
+-----
+- Default dtype is float16 (2 bytes) if not specified.
+- Returns 0.0 for all devices if model size can't be determined.
+- Designed for use with Hugging Face model metadata.
+
+"""
+
+
+from src.ModelData import ModelData
 from src.Metric import Metric
 from loguru import logger
+from typing import Optional
 
 
 class SizeMetric(Metric):
     """
-    SizeMetric evaluates model compatibility across different hardware devices
-    based on model size and available memory.
-
     Scoring System:
     Score = min(1.0, (Usable Device Memory - Model Size) / Usable Device Memory)
     All negative scores become 0. All scores are capped at 1.0.
@@ -28,9 +62,9 @@ class SizeMetric(Metric):
       computational inefficiency
 
     Model Size Calculation:
-    Model Size = Number of Parameters * Average Bytes per Parameter
-    Uses Hugging Face API to get parameter count and tensor types.
-    Assumes even split if multiple tensor types are present.
+    - Model Size = Number of Parameters * Average Bytes per Parameter
+    - Uses Hugging Face API to get parameter count and tensor types.
+    - Assumes even split if multiple tensor types are present.
     """
 
     # Device specifications with usable memory (after overhead and penalties)
@@ -51,9 +85,8 @@ class SizeMetric(Metric):
         try:
             # Get model size in GB
             model_size_gb = self._get_model_size(model)
-
             if model_size_gb is None:
-                logger.warning(f"Could not determine model size for {model.name}")
+                logger.warning("Could not determine model size")
                 return {device: 0.0 for device in self.DEVICE_SPECS.keys()}
 
             # Calculate score for each device
@@ -69,7 +102,7 @@ class SizeMetric(Metric):
             logger.error(f"Error evaluating size metric: {e}")
             return {device: 0.0 for device in self.DEVICE_SPECS.keys()}
 
-    def _get_model_size(self, model: ModelData) -> float:
+    def _get_model_size(self, model: ModelData) -> Optional[float]:
         """
         Get model size in GB using: parameter_count * bytes_per_param
         Uses actual tensor dtype if available, otherwise defaults to float16.
@@ -77,14 +110,14 @@ class SizeMetric(Metric):
         """
         try:
             if not model.hf_metadata:
-                logger.warning(f"No Hugging Face metadata available for {model.name}")
+                logger.warning("No Hugging Face metadata available")
                 return None
             metadata = model.hf_metadata
 
             # Get parameter count
             param_count = self._get_parameter_count(metadata)
             if param_count is None:
-                logger.warning(f"Could not find parameter count for {model.name}")
+                logger.warning("Could not find parameter count")
                 return None
 
             # Try to get actual tensor size from metadata, otherwise use default
@@ -149,7 +182,7 @@ class SizeMetric(Metric):
         logger.debug("Using default float16 (2 bytes/param)")
         return self.DEFAULT_BYTES_PER_PARAM
 
-    def _get_parameter_count(self, metadata: dict) -> int:
+    def _get_parameter_count(self, metadata: dict) -> Optional[int]:
         """Extract parameter count from HF metadata."""
         try:
             # Check config first (most common)
@@ -157,8 +190,8 @@ class SizeMetric(Metric):
                 config = metadata["config"]
                 for field in ["num_parameters", "n_parameters", "total_params"]:
                     if field in config and isinstance(config[field], (int, float)):
-                        param_count = int(config[field])
-                        if param_count > 0:
+                        param_count : Optional[int] = int(config[field])
+                        if param_count and param_count > 0:
                             logger.debug(
                                 f"Found parameter count: {param_count:,} \
                                     at config.{field}"
@@ -192,7 +225,7 @@ class SizeMetric(Metric):
             logger.debug(f"Error extracting parameter count: {e}")
             return None
 
-    def _extract_params_from_name(self, model_name: str) -> int:
+    def _extract_params_from_name(self, model_name: str) -> Optional[int]:
         """Extract parameter count from model name patterns."""
         import re
 

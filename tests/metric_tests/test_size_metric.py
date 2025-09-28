@@ -1,7 +1,8 @@
 import pytest
 from unittest.mock import Mock, patch
+from typing import Optional, Any
 from src.metrics.SizeMetric import SizeMetric
-from src.Interfaces import ModelData
+from src.ModelData import ModelData
 
 
 class TestSizeMetric:
@@ -23,7 +24,7 @@ class TestSizeMetric:
         mock_model.hf_metadata = {
             "config": {
                 "num_parameters": 7_000_000_000,  # 7B parameters
-                "name_or_path": "test/model-7b"
+                "name_or_path": "test/model-7b",
             }
         }
         return mock_model
@@ -37,12 +38,10 @@ class TestSizeMetric:
         scores = metric.evaluate(model_with_metadata)
 
         assert len(scores) == 4
-        assert all(device in scores for device in [
-            "raspberry_pi",
-            "jetson_nano",
-            "desktop_pc",
-            "aws_server"
-        ])
+        assert all(
+            device in scores
+            for device in ["raspberry_pi", "jetson_nano", "desktop_pc", "aws_server"]
+        )
         assert all(0.0 <= score <= 1.0 for score in scores.values())
 
     def test_evaluate_no_metadata(self, metric: SizeMetric, mock_model: Mock) -> None:
@@ -54,7 +53,7 @@ class TestSizeMetric:
             "raspberry_pi": 0.0,
             "jetson_nano": 0.0,
             "desktop_pc": 0.0,
-            "aws_server": 0.0
+            "aws_server": 0.0,
         }
         assert scores == expected
 
@@ -76,7 +75,7 @@ class TestSizeMetric:
         # All devices should get high scores
         assert all(score > 0.8 for score in scores.values())
 
-    @patch.object(SizeMetric, '_get_model_size')
+    @patch.object(SizeMetric, "_get_model_size")
     def test_evaluate_error_handling(
         self, mock_get_size: Mock, metric: SizeMetric, mock_model: Mock
     ) -> None:
@@ -88,7 +87,7 @@ class TestSizeMetric:
             "raspberry_pi": 0.0,
             "jetson_nano": 0.0,
             "desktop_pc": 0.0,
-            "aws_server": 0.0
+            "aws_server": 0.0,
         }
         assert scores == expected
 
@@ -98,8 +97,9 @@ class TestSizeMetric:
         self, metric: SizeMetric, model_with_metadata: Mock
     ) -> None:
         """Test successful model size calculation."""
-        size_gb = metric._get_model_size(model_with_metadata)
+        size_gb : Optional[float] = metric._get_model_size(model_with_metadata)
 
+        assert size_gb is not None
         # 7B params * 2 bytes = 14GB / 1024^3 ≈ 13.04GB
         assert 13.0 <= size_gb <= 14.0  # 7B * 2 bytes ≈ 13GB
 
@@ -111,17 +111,19 @@ class TestSizeMetric:
         mock_model.hf_metadata = {
             "config": {"num_parameters": 1_000_000_000, "torch_dtype": "float32"}
         }
-        size_gb = metric._get_model_size(mock_model)
+        size_gb : Optional[float] = metric._get_model_size(mock_model)
+        assert size_gb is not None
         assert 3.5 <= size_gb <= 4.0  # 1B * 4 bytes ≈ 3.7GB
 
         # Quantized model
         mock_model.hf_metadata = {
             "config": {
                 "num_parameters": 7_000_000_000,
-                "quantization_config": {"bits": 8}
+                "quantization_config": {"bits": 8},
             }
         }
         size_gb = metric._get_model_size(mock_model)
+        assert size_gb is not None
         assert 6.0 <= size_gb <= 7.0  # 7B * 1 byte ≈ 6.5GB
 
     def test_get_model_size_no_params(
@@ -133,35 +135,38 @@ class TestSizeMetric:
 
     # --- Tests for _extract_bytes_from_dtype() ---
 
-    @pytest.mark.parametrize("torch_dtype,expected_bytes", [
-        ("float32", 4.0),
-        ("float16", 2.0),
-        ("int8", 1.0),
-        ("int4", 0.5),
-        ("bfloat16", 2.0),
-        ("", 2.0),
-        (None, 2.0)  # Defaults
-    ])
+    @pytest.mark.parametrize(
+        "torch_dtype,expected_bytes",
+        [
+            ("float32", 4.0),
+            ("float16", 2.0),
+            ("int8", 1.0),
+            ("int4", 0.5),
+            ("bfloat16", 2.0),
+            ("", 2.0),
+            (None, 2.0),  # Defaults
+        ],
+    )
     def test_extract_bytes_from_dtype(
         self, metric: SizeMetric, torch_dtype: str, expected_bytes: float
     ) -> None:
         """Test dtype extraction from torch_dtype field."""
-        metadata = {"config": {"torch_dtype": torch_dtype}} if torch_dtype \
-            else {"config": {}}
+        metadata = (
+            {"config": {"torch_dtype": torch_dtype}} if torch_dtype else {"config": {}}
+        )
 
         assert metric._extract_bytes_from_dtype(metadata) == expected_bytes
 
     def test_extract_bytes_quantization_precedence(self, metric: SizeMetric) -> None:
         """Test dtype extraction precedence and quantization."""
         # Quantization only
-        metadata = {"config": {"quantization_config": {"bits": 4}}}
+        metadata : dict[str, Any] = {"config": {"quantization_config": {"bits": 4}}}
         assert metric._extract_bytes_from_dtype(metadata) == 0.5
 
         # torch_dtype takes precedence over quantization
-        metadata = {"config": {
-            "torch_dtype": "float32",
-            "quantization_config": {"bits": 8}
-        }}
+        metadata = {
+            "config": {"torch_dtype": "float32", "quantization_config": {"bits": 8}}
+        }
         assert metric._extract_bytes_from_dtype(metadata) == 4.0
 
     # --- Tests for _get_parameter_count() ---
@@ -186,28 +191,33 @@ class TestSizeMetric:
         """Test parameter extraction edge cases."""
         # Invalid values
         assert metric._get_parameter_count({"config": {"num_parameters": -1}}) is None
-        assert metric._get_parameter_count(
-            {"config": {"num_parameters": "invalid"}}
-        ) is None
+        assert (
+            metric._get_parameter_count({"config": {"num_parameters": "invalid"}})
+            is None
+        )
 
         # No valid fields
-        assert metric._get_parameter_count(
-            {"config": {"model_type": "transformer"}}
-        ) is None
+        assert (
+            metric._get_parameter_count({"config": {"model_type": "transformer"}})
+            is None
+        )
         assert metric._get_parameter_count({"other_field": "value"}) is None
 
     # --- Tests for _extract_params_from_name() ---
 
-    @pytest.mark.parametrize("model_name,expected_params", [
-        ("llama-7b", 7_000_000_000),
-        ("gpt-3.5b", 3_500_000_000),
-        ("model-13B", 13_000_000_000),
-        ("falcon-40b-instruct", 40_000_000_000),
-        ("bert-110M", None),  # 'M' not supported, only 'b'/'B'
-        ("no-params-here", None),
-        ("model-7.5b-chat", 7_500_000_000),
-        ("70B-model", 70_000_000_000),
-    ])
+    @pytest.mark.parametrize(
+        "model_name,expected_params",
+        [
+            ("llama-7b", 7_000_000_000),
+            ("gpt-3.5b", 3_500_000_000),
+            ("model-13B", 13_000_000_000),
+            ("falcon-40b-instruct", 40_000_000_000),
+            ("bert-110M", None),  # 'M' not supported, only 'b'/'B'
+            ("no-params-here", None),
+            ("model-7.5b-chat", 7_500_000_000),
+            ("70B-model", 70_000_000_000),
+        ],
+    )
     def test_extract_params_from_name(
         self, metric: SizeMetric, model_name: str, expected_params: int
     ) -> None:
@@ -222,7 +232,7 @@ class TestSizeMetric:
             "raspberry_pi": 2.0,
             "jetson_nano": 3.0,
             "desktop_pc": 20.0,
-            "aws_server": 60.0
+            "aws_server": 60.0,
         }
         assert metric.DEVICE_SPECS == expected
 
@@ -249,14 +259,12 @@ class TestSizeMetric:
 
             # Over limit: score = 0
             score = max(
-                0.0,
-                min(1.0, (memory_limit - (memory_limit + 1)) / memory_limit)
+                0.0, min(1.0, (memory_limit - (memory_limit + 1)) / memory_limit)
             )
             assert score == 0.0
 
             # Under limit: score > 0
             score = max(
-                0.0,
-                min(1.0, (memory_limit - (memory_limit - 0.1)) / memory_limit)
+                0.0, min(1.0, (memory_limit - (memory_limit - 0.1)) / memory_limit)
             )
             assert score > 0.0

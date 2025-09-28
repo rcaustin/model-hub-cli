@@ -4,7 +4,7 @@ import requests
 from huggingface_hub import hf_hub_download
 from loguru import logger
 
-from src.Interfaces import ModelData
+from src.ModelData import ModelData
 from src.Metric import Metric
 
 

@@ -1,6 +1,54 @@
+"""
+BusFactorMetric.py
+==================
+
+Estimates the "bus factor" risk — the risk that project knowledge and
+maintenance responsibility is concentrated in too few contributors.
+
+Signal
+------
+- Positive signal when a project has multiple active contributors sharing
+  the workload.
+- Negative signal when commits and contributions are dominated by one or
+  very few individuals.
+
+Inputs (from context)
+---------------------
+- GitHub repository metadata including:
+    - contributors list with contribution counts
+    - repository metadata such as stars, forks, and recent activity
+- HuggingFace metadata for author or organization information
+
+Heuristics (illustrative)
+-------------------------
+- Number of active contributors (top 10 considered)
+- Distribution of contributions among top contributors (min/max ratio)
+- Known large organizations automatically scored as low risk
+
+Scoring (0–1)
+-------------
+- 1.0 if at least 3 contributors with relatively balanced contributions
+  (dominance ratio <= 0.5)
+- 0.5 if 2-3 contributors or dominance ratio <= 0.75
+- 0.0 if 1 or fewer contributors or dominance ratio > 0.9
+
+Limitations
+-----------
+- Contributor data may exclude private or minor contributors
+- Stars and forks are weak proxies for bus factor risk
+- Recency and normalization by project size are not considered but can
+  improve accuracy
+
+Note
+----
+This metric corresponds to the "Bus Factor" metric in the specification,
+providing an estimate of risk associated with knowledge centralization
+within the maintainers of a project.
+"""
+
 from loguru import logger
 
-from src.Interfaces import ModelData
+from src.ModelData import ModelData
 from src.Metric import Metric
 
 
@@ -21,17 +69,18 @@ class BusFactorMetric(Metric):
         author = ""
         if hf_metadata:
             author = (
-                hf_metadata.get("author") or
-                hf_metadata.get("id", "").split("/")[0] or
-                ""
+                hf_metadata.get("author")
+                or hf_metadata.get("id", "").split("/")[0]
+                or ""
             )
         logger.debug("Extracted author from HuggingFace metadata: '{}'", author)
 
         # Return full score if author is a large company
-        if author in self.LARGE_COMPANIES:
+        author = author.lower()
+        if any(company in author for company in self.LARGE_COMPANIES):
             logger.debug(
-                "Author '{}' is known large company, returning full score 1.0",
-                author
+                f"Author '{author}' contains known large company substring, "
+                f"returning full score 1.0",
             )
             return 1.0
 

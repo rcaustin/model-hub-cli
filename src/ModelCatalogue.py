@@ -1,3 +1,50 @@
+"""
+ModelCatalogue.py
+=================
+
+Coordinates model evaluation using a fixed set of metrics and generates
+structured reports for further consumption.
+
+Responsibilities
+----------------
+- Maintain a catalogue of models to be evaluated.
+- Store a fixed set of metrics applied to all models.
+- Run evaluations across all models.
+- Generate an NDJSON report with scores and evaluation latencies.
+
+Key Concepts
+------------
+- **Model**: Represents a machine learning model with associated URLs and metadata.
+- **Metric**: Abstract evaluation logic applied to a model (e.g., license check, size).
+- **NDJSON**: Newline-delimited JSON, ideal for streaming analytics or ingestion.
+
+Typical Flow
+------------
+1. Instantiate `ModelCatalogue`.
+2. Use `addModel()` to register each `Model`.
+3. Call `evaluateModels()` to run all metrics on all models.
+4. Call `generateReport()` to produce a report.
+
+Inputs & Outputs
+----------------
+- Input: A list of `Model` instances (each with code, model, and dataset URLs).
+- Output: NDJSON report string, where each line is a model's evaluation result.
+
+Error Handling
+--------------
+- Assumes individual `Model.evaluate()` implementations handle their own exceptions.
+- Logging is used to trace model addition and report generation steps.
+
+Testing Notes
+-------------
+- Core test targets include:
+    - Model addition (`addModel`)
+    - Evaluation workflow (`evaluateModels`)
+    - Output format and field presence (`generateReport`, `getModelNDJSON`)
+- Use mocked metrics to simulate model scoring in tests.
+"""
+
+
 import json
 
 from loguru import logger
@@ -19,7 +66,7 @@ class ModelCatalogue:
     # models holds all Model instances in the catalogue.
     # metrics holds all Metric instances to be applied to models.
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.models: list[Model] = []
         self.metrics: list[Metric] = [
             LicenseMetric(),
@@ -32,7 +79,7 @@ class ModelCatalogue:
             RampUpMetric()
         ]
 
-    def addModel(self, model: Model):
+    def addModel(self, model: Model) -> None:
         self.models.append(model)
 
         logger.debug(
@@ -45,11 +92,11 @@ class ModelCatalogue:
             model.codeLink
         )
 
-    def evaluateModels(self):
+    def evaluateModels(self) -> None:
         for model in self.models:
             model.evaluate_all(self.metrics)
 
-    def generateReport(self):
+    def generateReport(self) -> str:
         ndjson_report = []
         for model in self.models:
             ndjson_report.append(self.getModelNDJSON(model))
@@ -81,5 +128,5 @@ class ModelCatalogue:
             "code_quality_latency": model.getLatency("CodeQualityMetric"),
         }
 
-        # Convert dictionary to NDJSON (one key-value pair per line)
+        # Convert model evaluation to a single NDJSON line
         return json.dumps(ndjson_obj, separators=(",", ":"))

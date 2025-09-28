@@ -1,7 +1,43 @@
+"""
+AvailabilityMetric.py
+====================
+
+Evaluates the availability of model resources by checking accessibility of:
+- HuggingFace model
+- GitHub repository
+- Dataset (if provided)
+
+Signal
+------
+Checks HTTP accessibility and API responses for the provided URLs.
+
+Inputs (from context)
+---------------------
+- model.modelLink (HuggingFace model URL)
+- model.codeLink (GitHub repository URL)
+- model.datasetLink (HuggingFace dataset URL)
+
+Scoring (0–1)
+-------------
+Returns a score representing the fraction of accessible resources (0.0 to 1.0).
+
+Limitations
+-----------
+- Relies on network requests which may be slow or fail intermittently
+- Only checks HTTP status, not deeper content validation or permissions
+- Assumes HuggingFace URLs are well-formed with organization and model/dataset IDs
+- GitHub API rate limits could affect repeated checks
+
+Note
+----
+This metric corresponds to the "Available Code and Dataset Score" in the specification,
+assessing the online availability of key model components.
+"""
+
 import requests
 from loguru import logger
 
-from src.Interfaces import ModelData
+from src.ModelData import ModelData
 from src.Metric import Metric
 
 
