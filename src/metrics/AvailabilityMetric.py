@@ -1,33 +1,38 @@
 """
 AvailabilityMetric.py
-=====================
-Checks the presence and basic reachability of the three URL categories:
-model, code repository, and dataset.
+====================
+
+Evaluates the availability of model resources by checking accessibility of:
+- HuggingFace model
+- GitHub repository
+- Dataset (if provided)
 
 Signal
 ------
-- Strong positive when expected URLs exist and are reachable.
-- Neutral/partial when some are present or cannot be verified.
-- Negative when all expected artifacts are missing/unreachable.
+Checks HTTP accessibility and API responses for the provided URLs.
 
 Inputs (from context)
 ---------------------
-- urls: {"model": str|None, "code": str|None, "dataset": str|None}
-- metadata: may include booleans/flags like {"code_repo": {...}},
-        {"dataset": {..., "reachable": bool}}
+- model.modelLink (HuggingFace model URL)
+- model.codeLink (GitHub repository URL)
+- model.datasetLink (HuggingFace dataset URL)
 
 Scoring (0–1)
 -------------
-- 1.0  : ≥2 categories present and reachable (including "code" highly weighted)
-- 0.5  : exactly 1 category present/reachable
-- 0.0  : none present/reachable
+Returns a score representing the fraction of accessible resources (0.0 to 1.0).
 
 Limitations
 -----------
-- "Reachability" is a coarse probe; private repos or transient network issues
-  may reduce score conservatively.
-"""
+- Relies on network requests which may be slow or fail intermittently
+- Only checks HTTP status, not deeper content validation or permissions
+- Assumes HuggingFace URLs are well-formed with organization and model/dataset IDs
+- GitHub API rate limits could affect repeated checks
 
+Note
+----
+This metric corresponds to the "Available Code and Dataset Score" in the specification,
+assessing the online availability of key model components.
+"""
 
 import requests
 from loguru import logger

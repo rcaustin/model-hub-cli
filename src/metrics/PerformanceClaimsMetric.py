@@ -1,29 +1,35 @@
 """
 PerformanceClaimsMetric.py
 ==========================
-Looks for stated performance/evaluation claims and their traceability.
 
-Signals (examples)
-------------------
-- Benchmarks with dataset/task names and numbers
-- Links to evaluation scripts or reproducible notebooks
-- Comparison tables with baselines and metrics (accuracy, F1, WER, etc.)
+Evaluates whether the model makes clear, verifiable performance claims.
 
-Inputs (from context)
----------------------
-- model_card.card_text: str | None
-- code_repo README/docs text: str | None
+Overview
+--------
+Searches Hugging Face and GitHub metadata for references to accuracy, F1, BLEU, etc.
+It also detects benchmark mentions like SQuAD or ImageNet. Uses regex to find
+quantified metrics in text.
 
-Scoring (0–1)
--------------
-- 1.0 : claims + datasets + metrics + reproduction pointers
-- 0.5 : claims present but weak details (no dataset/metric names or no repro)
-- 0.0 : no claims detected
+Scoring (0.0 – 1.0)
+-------------------
++1.0: Specific metric with benchmark (e.g. "95% accuracy on ImageNet")
++0.8: Specific metric only (e.g. "accuracy: 95%")
++0.6: Vague metric + benchmark (e.g. "strong accuracy on SQuAD")
++0.4: Vague metric only (e.g. "high F1")
++0.2: Benchmark mention only (e.g. "evaluated on GLUE")
++0.0: No relevant claims found
+
+Responsibilities
+----------------
+- Extract model descriptions from Hugging Face and GitHub metadata
+- Detect common metrics and benchmarks using regex
+- Score each claim based on specificity and context
+- Return average score across all claims
 
 Limitations
 -----------
-- Pure text search can miss image-only tables or PDFs.
-- Be conservative when evidence is thin or unverifiable.
+- Does not fetch full README from GitHub (only uses metadata)
+- May miss unconventional phrasing or claims outside standard fields
 """
 
 

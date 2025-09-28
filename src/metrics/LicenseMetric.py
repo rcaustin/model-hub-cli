@@ -1,25 +1,30 @@
 """
 LicenseMetric.py
 ================
-Assesses whether the code/model license is present and compatible with
-common redistribution/use scenarios.
+
+Evaluates license compatibility of a model using cached metadata.
 
 Inputs (from context)
 ---------------------
-- code_repo.license: str | None
-- model_card.license: str | None (if available)
+- HuggingFace model metadata (hf_metadata)
+- GitHub repository metadata (github_metadata)
 
-Scoring (0–1)
--------------
-- 1.0 : explicit, recognized permissive or weak-copyleft license (e.g., MIT,
-        BSD, Apache-2.0, MPL-2.0) with no conflicting clauses detected
-- 0.5 : license present but ambiguous/strong-copyleft for target use (e.g., GPL)
-- 0.0 : missing or custom/proprietary terms that block typical use
+Scoring (0.0 – 1.0)
+-------------------
+- 1.0: Known license and fully compatible (e.g., MIT, Apache-2.0)
+- 0.5: Unknown, ambiguous, or undetermined license
+- 0.0: Known but incompatible license (e.g., GPL-3.0, AGPL-3.0, Proprietary)
+
+Process
+-------
+1. Check license from HuggingFace metadata if available.
+2. If not found, fallback to GitHub repository license.
+3. Map detected license to compatibility score.
 
 Limitations
 -----------
-- License detection can be brittle; prefer SPDX identifiers when possible.
-- Multi-license or per-file licensing may need deeper inspection.
+- Only uses cached metadata, no live license detection.
+- May misclassify if license metadata is missing or inconsistent.
 """
 
 from loguru import logger
@@ -40,12 +45,12 @@ class LicenseMetric(Metric):
         "LGPL-2.1": 1.0,
         "LGPL-2.1-or-later": 1.0,
         "GPL-2.0-or-later": 1.0,
+        "Apache-2.0": 1.0,
 
         "GPL-2.0": 0.5,
         "MPL-2.0": 0.5,
         "Unlicense": 0.5,
 
-        "Apache-2.0": 0.0,
         "GPL-3.0": 0.0,
         "LGPL-3.0": 0.0,
         "AGPL-3.0": 0.0,

@@ -1,25 +1,38 @@
 """
 SizeMetric.py
 =============
-Captures basic size-related signals (e.g., repository/model size) and
-applies simple buckets or sanity checks.
 
-Inputs (from context)
----------------------
-- code_repo.size_bytes: int | None
-- model_card.size_bytes: int | None (if known)
+Evaluates model memory compatibility across common hardware platforms.
 
-Scoring (0–1) (illustrative)
-----------------------------
-- 1.0 : size within expected/healthy range for the domain
-- 0.5 : unusually small/large but still plausible
-- 0.0 : missing size info or pathological extremes (when clearly erroneous)
+Overview
+--------
+The `SizeMetric` checks how well a model fits in memory on devices like Raspberry Pi,
+Jetson Nano, desktop GPUs, and AWS servers. It returns a score between 0.0 and 1.0 for
+each device, based on how much memory is left after loading the model.
 
-Limitations
+Responsibilities
+----------------
+- Extract parameter count and tensor dtype from Hugging Face metadata.
+- Estimate model size in GB using parameter count and dtype precision.
+- Compute per-device compatibility scores based on available memory.
+- Return a dictionary mapping device names to float scores.
+
+Key Methods
 -----------
-- Size alone is not quality—treat as a weak signal in NetScore.
-- Heuristics should be calibrated to the project’s typical repos/models.
+- `evaluate(model: ModelData) -> dict[str, float]`: Main entry point.
+- `_get_model_size(model)`: Calculates model size in GB.
+- `_extract_bytes_from_dtype(metadata)`: Parses dtype to get bytes per param.
+- `_get_parameter_count(metadata)`: Tries multiple fields to infer param count.
+- `_extract_params_from_name(name)`: Fallback using model name patterns.
+
+Notes
+-----
+- Default dtype is float16 (2 bytes) if not specified.
+- Returns 0.0 for all devices if model size can't be determined.
+- Designed for use with Hugging Face model metadata.
+
 """
+
 
 from src.ModelData import ModelData
 from src.Metric import Metric
@@ -29,9 +42,6 @@ from typing import Optional
 
 class SizeMetric(Metric):
     """
-    SizeMetric evaluates model compatibility across different hardware devices
-    based on model size and available memory.
-
     Scoring System:
     Score = min(1.0, (Usable Device Memory - Model Size) / Usable Device Memory)
     All negative scores become 0. All scores are capped at 1.0.
@@ -52,9 +62,9 @@ class SizeMetric(Metric):
       computational inefficiency
 
     Model Size Calculation:
-    Model Size = Number of Parameters * Average Bytes per Parameter
-    Uses Hugging Face API to get parameter count and tensor types.
-    Assumes even split if multiple tensor types are present.
+    - Model Size = Number of Parameters * Average Bytes per Parameter
+    - Uses Hugging Face API to get parameter count and tensor types.
+    - Assumes even split if multiple tensor types are present.
     """
 
     # Device specifications with usable memory (after overhead and penalties)

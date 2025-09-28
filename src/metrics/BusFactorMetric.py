@@ -1,46 +1,50 @@
 """
 BusFactorMetric.py
 ==================
-Estimates repository "bus factor" risk—the likelihood that project knowledge is
-concentrated in very few people.
+
+Estimates the "bus factor" risk — the risk that project knowledge and
+maintenance responsibility is concentrated in too few contributors.
 
 Signal
 ------
-- Strong positive when there are multiple active maintainers and a healthy
-  spread of recent contributors.
-- Negative when commits/issues/ownership are dominated by one person or a
-  very small group.
+- Positive signal when a project has multiple active contributors sharing
+  the workload.
+- Negative signal when commits and contributions are dominated by one or
+  very few individuals.
 
 Inputs (from context)
 ---------------------
-- code_repo: dict with fields like:
-    {
-      "contributors": [str, ...] or [{"login": str, "contributions": int}, ...],
-      "last_commit_iso": str | None,
-      "forks": int,
-      "stars": int,
-      ...
-    }
+- GitHub repository metadata including:
+    - contributors list with contribution counts
+    - repository metadata such as stars, forks, and recent activity
+- HuggingFace metadata for author or organization information
 
 Heuristics (illustrative)
 -------------------------
-- n_active = number of recent contributors (e.g., last 3–6 months)
-- dominance_ratio = top_contributor_contribs / total_recent_contribs
-- Consider org ownership vs. single maintainer, bus-factor-relevant metadata.
+- Number of active contributors (top 10 considered)
+- Distribution of contributions among top contributors (min/max ratio)
+- Known large organizations automatically scored as low risk
 
 Scoring (0–1)
 -------------
-- 1.0 : n_active >= 3 and dominance_ratio <= 0.5
-- 0.5 : n_active in {2,3} or dominance_ratio <= 0.75
-- 0.0 : n_active <= 1 or dominance_ratio > 0.9
+- 1.0 if at least 3 contributors with relatively balanced contributions
+  (dominance ratio <= 0.5)
+- 0.5 if 2-3 contributors or dominance ratio <= 0.75
+- 0.0 if 1 or fewer contributors or dominance ratio > 0.9
 
 Limitations
 -----------
-- API data may omit private contributors or skew recency windows.
-- Fork-based signals (stars/forks) are weak proxies; use cautiously.
-- Prefer recency windows and normalize for repo size when possible.
-"""
+- Contributor data may exclude private or minor contributors
+- Stars and forks are weak proxies for bus factor risk
+- Recency and normalization by project size are not considered but can
+  improve accuracy
 
+Note
+----
+This metric corresponds to the "Bus Factor" metric in the specification,
+providing an estimate of risk associated with knowledge centralization
+within the maintainers of a project.
+"""
 
 from loguru import logger
 

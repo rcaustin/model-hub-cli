@@ -1,24 +1,28 @@
 """
-CodeQualityMetric - Evaluates code quality based on GitHub repository analysis.
+CodeQualityMetric.py
+====================
 
-Score Breakdown (Total: 1.0):
-- Code Popularity (0.2 max):
-  - Stars: 0.01 per 50 stars (max 0.1)
-  - Forks: 0.01 per 10 forks (max 0.1)
-- Testing Quality (0.3 max):
-  - Based on test-to-source file ratio
-  - Full score when test files >= source files
-- Commit Activity (0.3 max):
-  - 0.05 per daily commit (30-day average)
-- Documentation (0.2 max):
-  - LICENSE file: 0.05
-  - README file: 0.05
-  - CONTRIBUTING file: 0.10
+Evaluates code quality based on GitHub repository analysis.
 
-Requirements:
-- GitHub metadata with clone_url for full analysis
-- Returns 0.0 if no GitHub metadata available
-- Popularity score calculated even without clone_url
+Score Breakdown (Total: 1.0)
+----------------------------
+- Code Popularity (stars, forks): up to 0.2
+- Test Suite Coverage (test files vs source files): up to 0.3
+- Commit Frequency (avg daily commits): up to 0.3
+- Documentation presence (LICENSE, README, CONTRIBUTING): up to 0.2
+
+Requirements
+------------
+- Access to GitHub metadata with repository stats and clone URL
+- Git installed and accessible via command line for cloning
+- Python environment with pathlib and subprocess modules
+
+Limitations
+-----------
+- Cloning repositories can be slow or fail due to network or access issues
+- Test file detection relies on naming conventions and folder structure
+- Documentation score is basic and based on file presence only
+- Git commands executed via subprocess, which may raise security concerns
 """
 
 import subprocess

@@ -1,39 +1,34 @@
 """
 DatasetQualityMetric.py
 =======================
-Evaluates availability and basic quality indicators for the dataset URL.
+
+Evaluates dataset quality using LLM analysis of dataset metadata.
 
 Signals (examples)
 ------------------
-- Dataset landing page reachable with descriptive text
-- Clear license/usage terms and provenance
-- Basic stats present (size, #items, classes, modalities)
-- Download/readme files detectable; checksum or versioning info
+- Dataset size and completeness
+- Documentation quality and clarity
+- Community engagement metrics (downloads, likes)
+- Maintenance and recency indicators
+- Academic backing and credibility
 
 Inputs (from context)
 ---------------------
-- urls["dataset"]: str | None
-- dataset: dict like {
-    "reachable": bool,
-    "description": str | None,
-    "license": str | None,
-    "size_bytes": int | None,
-    "num_items": int | None,
-    "version": str | None,
-  }
+- Dataset metadata JSON (from model.dataset_metadata)
+- Dataset link for logging and reference
 
-Scoring (0–1)
--------------
-- 1.0 : reachable + license + basic stats (≥2 of: size, num_items, version)
-- 0.5 : reachable + minimal description but missing key fields
-- 0.0 : no dataset URL or unreachable / empty info
+Scoring (0.0 – 1.0)
+-------------------
+- Returns a float score indicating dataset quality
+- Based on LLM assessment of metadata factors
 
 Limitations
 -----------
-- Heuristics depend on parsable descriptors; opaque portals may under-score.
-- Private/paid datasets considered unavailable without explicit access.
+- Requires valid API key for external LLM service
+- Dependent on quality and completeness of dataset metadata
+- Relies on external API; subject to latency and availability
+- Assumes LLM scoring is reliable and unbiased
 """
-
 
 import os
 import json

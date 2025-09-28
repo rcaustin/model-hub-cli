@@ -1,28 +1,7 @@
 """
 RampUpMetric.py
 ===============
-Estimates how quickly a new developer can become productive.
 
-Signals (examples)
-------------------
-- Clear README with install/usage examples
-- One-step setup scripts (e.g., ./run install)
-- Tests and minimal repro examples
-- Consistent project layout and dependency pins
-
-Inputs (from context)
----------------------
-- code_repo: README/docs presence, scripts, dependency files, tests
-
-Scoring (0–1)
--------------
-- 1.0 : turnkey install + runnable example + tests
-- 0.5 : some guidance but manual steps and gaps remain
-- 0.0 : minimal or no setup docs; unclear entry points
-
-Limitations
------------
-- Subjective; keep rubric simple and tied to objective signals.
 """
 
 import re
