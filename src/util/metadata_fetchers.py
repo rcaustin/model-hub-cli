@@ -1,35 +1,49 @@
 """
 metadata_fetchers.py
 ====================
-Thin wrappers around external APIs/HTML endpoints to gather repo/model/dataset
-metadata needed by metrics.
+
+Fetchers for external metadata used in model evaluation.
+
 
 Responsibilities
 ----------------
-- Fetch GitHub repository information (license, stars/forks, last commit,
-  contributors) for classified code URLs.
-- Fetch Hugging Face model card text, tags, and basic model metadata for model URLs.
-- Probe dataset/other URLs for basic reachability and descriptive content.
-- Apply small caching/retry logic; handle rate limits gracefully.
+- Abstract interface (`MetadataFetcher`) for all metadata fetchers.
+- Implementations for:
+    - `HuggingFaceFetcher`: Fetches model metadata from Hugging Face API.
+    - `GitHubFetcher`: Fetches repository data, license, contributors, stars,
+      forks, and recent commits from GitHub API.
+    - `DatasetFetcher`: Fetches dataset metadata from Hugging Face datasets API.
+
 
 Typical Functions
 -----------------
-- fetch_code_repo(url: str, token: str | None = None) -> dict
-- fetch_model_card(url: str) -> dict
-- fetch_dataset_info(url: str) -> dict
-- build_metadata_bundle(urls: dict[str, str | None], token: str | None = None) -> dict
-    Returns a dict aggregating the pieces above for consumption by Model/metrics.
+- `fetch_metadata(url: Optional[str]) -> Dict[str, Any]`:
+    Each fetcher implements this method to extract structured metadata
+    from its respective source, returning a dictionary of relevant fields.
+    Returns an empty dictionary on failure or if URL is None.
+
 
 Error Handling
 --------------
-- Never raise uncaught exceptions for network failures; return partial results
-  with flags like {"reachable": False, "error": "..."} and log a warning.
-- Timeouts should be short and retried a limited number of times.
+- Logs and skips gracefully when:
+    - URLs are missing or malformed.
+    - Network requests fail or time out.
+    - Expected response structure is missing.
+- All fetchers return an empty dict `{}` on failure, never `None`.
+
 
 Testing
 -------
-- Use fixtures to simulate API responses and rate-limit conditions.
-- Ensure deterministic outputs for given inputs (no live network dependency).
+- Each fetcher is injectable with a `requests.Session` for easier testing/mocking.
+- URL parsing and validation is deterministic and testable.
+- No side effects beyond network I/O and logging.
+
+
+Notes
+-----
+- GitHub rate limits are affected by `GITHUB_TOKEN`.
+- All fetchers assume standard URL structures and may skip custom or unrecognized
+    formats.
 """
 
 from typing import Any, Dict, Optional
