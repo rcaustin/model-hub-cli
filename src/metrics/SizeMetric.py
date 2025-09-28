@@ -1,6 +1,7 @@
 from src.Interfaces import ModelData
 from src.Metric import Metric
 from loguru import logger
+from typing import Optional
 
 
 class SizeMetric(Metric):
@@ -53,7 +54,7 @@ class SizeMetric(Metric):
             model_size_gb = self._get_model_size(model)
 
             if model_size_gb is None:
-                logger.warning(f"Could not determine model size for {model.name}")
+                logger.warning(f"Could not determine model size")
                 return {device: 0.0 for device in self.DEVICE_SPECS.keys()}
 
             # Calculate score for each device
@@ -69,7 +70,7 @@ class SizeMetric(Metric):
             logger.error(f"Error evaluating size metric: {e}")
             return {device: 0.0 for device in self.DEVICE_SPECS.keys()}
 
-    def _get_model_size(self, model: ModelData) -> float:
+    def _get_model_size(self, model: ModelData) -> Optional[float]:
         """
         Get model size in GB using: parameter_count * bytes_per_param
         Uses actual tensor dtype if available, otherwise defaults to float16.
@@ -77,14 +78,14 @@ class SizeMetric(Metric):
         """
         try:
             if not model.hf_metadata:
-                logger.warning(f"No Hugging Face metadata available for {model.name}")
+                logger.warning(f"No Hugging Face metadata available")
                 return None
             metadata = model.hf_metadata
 
             # Get parameter count
             param_count = self._get_parameter_count(metadata)
             if param_count is None:
-                logger.warning(f"Could not find parameter count for {model.name}")
+                logger.warning(f"Could not find parameter count")
                 return None
 
             # Try to get actual tensor size from metadata, otherwise use default
@@ -149,7 +150,7 @@ class SizeMetric(Metric):
         logger.debug("Using default float16 (2 bytes/param)")
         return self.DEFAULT_BYTES_PER_PARAM
 
-    def _get_parameter_count(self, metadata: dict) -> int:
+    def _get_parameter_count(self, metadata: dict) -> Optional[int]:
         """Extract parameter count from HF metadata."""
         try:
             # Check config first (most common)
@@ -157,8 +158,8 @@ class SizeMetric(Metric):
                 config = metadata["config"]
                 for field in ["num_parameters", "n_parameters", "total_params"]:
                     if field in config and isinstance(config[field], (int, float)):
-                        param_count = int(config[field])
-                        if param_count > 0:
+                        param_count : Optional[int] = int(config[field])
+                        if param_count and param_count > 0:
                             logger.debug(
                                 f"Found parameter count: {param_count:,} \
                                     at config.{field}"
@@ -192,7 +193,7 @@ class SizeMetric(Metric):
             logger.debug(f"Error extracting parameter count: {e}")
             return None
 
-    def _extract_params_from_name(self, model_name: str) -> int:
+    def _extract_params_from_name(self, model_name: str) -> Optional[int]:
         """Extract parameter count from model name patterns."""
         import re
 

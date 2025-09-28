@@ -1,9 +1,8 @@
 import pytest
 import os
-from typing import Optional
 from unittest.mock import Mock, patch
+from typing import Iterator
 from src.metrics.DatasetQualityMetric import DatasetQualityMetric
-from tests.conftest import base_model
 
 
 class TestDatasetQualityMetric:
@@ -14,24 +13,28 @@ class TestDatasetQualityMetric:
             return DatasetQualityMetric()
 
     @pytest.fixture
-    def model_with_dataset_metadata(self, base_model):  # base_model type comes from conftest
+    def model_with_dataset_metadata(
+        self, base_model
+    ):  # base_model type comes from conftest
         base_model._dataset_metadata = {
             "id": "test/dataset",
             "description": "A test dataset",
             "downloads": 1000,
             "likes": 50,
             "siblings": [{"name": "file1"}, {"name": "file2"}],
-            "usedStorage": 1000000
+            "usedStorage": 1000000,
         }
         return base_model
 
     @pytest.fixture
-    def model_no_dataset_metadata(self, base_model):  # base_model type comes from conftest
+    def model_no_dataset_metadata(
+        self, base_model
+    ):  # base_model type comes from conftest
         base_model._dataset_metadata = None
         return base_model
 
     @pytest.fixture(autouse=True)
-    def patch_requests_post(self) -> Mock:
+    def patch_requests_post(self) -> Iterator[Mock]:
         with patch("src.metrics.DatasetQualityMetric.requests.post") as mock_post:
             yield mock_post
 
@@ -41,14 +44,12 @@ class TestDatasetQualityMetric:
         self,
         metric: DatasetQualityMetric,
         model_with_dataset_metadata,
-        patch_requests_post: Mock
+        patch_requests_post: Mock,
     ) -> None:
         # Mock successful API response
         mock_response = Mock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "choices": [{"message": {"content": "0.8"}}]
-        }
+        mock_response.json.return_value = {"choices": [{"message": {"content": "0.8"}}]}
         patch_requests_post.return_value = mock_response
 
         score = metric.evaluate(model_with_dataset_metadata)
@@ -57,9 +58,7 @@ class TestDatasetQualityMetric:
         patch_requests_post.assert_called_once()
 
     def test_evaluate_no_dataset_metadata(
-        self,
-        metric: DatasetQualityMetric,
-        model_no_dataset_metadata
+        self, metric: DatasetQualityMetric, model_no_dataset_metadata
     ) -> None:
         score = metric.evaluate(model_no_dataset_metadata)
         assert score == 0.0
@@ -68,7 +67,7 @@ class TestDatasetQualityMetric:
         self,
         metric: DatasetQualityMetric,
         model_with_dataset_metadata,
-        patch_requests_post: Mock
+        patch_requests_post: Mock,
     ) -> None:
         # Mock API failure
         mock_response = Mock()
@@ -83,7 +82,7 @@ class TestDatasetQualityMetric:
         self,
         metric: DatasetQualityMetric,
         model_with_dataset_metadata,
-        patch_requests_post: Mock
+        patch_requests_post: Mock,
     ) -> None:
         # Mock exception during API call
         patch_requests_post.side_effect = Exception("Network error")
@@ -116,7 +115,7 @@ class TestDatasetQualityMetric:
     def test_create_quality_prompt(self, metric: DatasetQualityMetric) -> None:
         metadata = {"id": "test/dataset", "description": "Test"}
         prompt = metric._create_quality_prompt(metadata)
-        
+
         assert "test/dataset" in prompt
         assert "Test" in prompt
         assert "0.0 to 1.0" in prompt
@@ -124,15 +123,13 @@ class TestDatasetQualityMetric:
 
     def test_no_api_key_warning(self) -> None:
         with patch.dict(os.environ, {}, clear=True):
-            with patch('src.metrics.DatasetQualityMetric.logger') as mock_logger:
+            with patch("src.metrics.DatasetQualityMetric.logger") as mock_logger:
                 metric = DatasetQualityMetric()
                 mock_logger.warning.assert_called_once()
                 assert metric.api_key is None
 
     def test_get_llm_score_no_choices(
-        self,
-        metric: DatasetQualityMetric,
-        patch_requests_post: Mock
+        self, metric: DatasetQualityMetric, patch_requests_post: Mock
     ) -> None:
         # Mock response with no choices
         mock_response = Mock()
@@ -144,9 +141,7 @@ class TestDatasetQualityMetric:
         assert result is None
 
     def test_get_llm_score_unparseable_content(
-        self,
-        metric: DatasetQualityMetric,
-        patch_requests_post: Mock
+        self, metric: DatasetQualityMetric, patch_requests_post: Mock
     ) -> None:
         # Mock response with unparseable content
         mock_response = Mock()
