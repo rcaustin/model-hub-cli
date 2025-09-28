@@ -20,3 +20,6 @@ logs/
 .input
 .output
 .test
+
+# IDE Data
+.vscode
