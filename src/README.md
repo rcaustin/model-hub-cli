@@ -44,7 +44,9 @@ main.py → ModelCatalogue → (url_utils, metadata_fetchers) → Model → Metr
 
 ## Environment & Config
 
-- `GITHUB_TOKEN` *(optional but recommended)* — increases GitHub API rate limit and completeness of repo metadata.
+- `GITHUB_TOKEN` *(REQUIRED)* — increases GitHub API rate limit and completeness of repo metadata.
+- `LOG_FILE` *(optional, file must exist)* — specifies the location of the log file to be used.
+- `LOG_LEVEL` *(optional)* — one of \[0 - silent, 1 - warnings, 2 - debug\]; defaults to 0.
 
 ```bash
 export GITHUB_TOKEN=ghp_XXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -60,3 +62,4 @@ export GITHUB_TOKEN=ghp_XXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
 - Unit tests live under `tests/` with per-metric tests in `tests/metric_tests/`.
 - Run with `./run test` or `pytest -q`.
+
