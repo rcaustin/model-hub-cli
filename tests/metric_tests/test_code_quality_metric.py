@@ -22,8 +22,8 @@ class TestCodeQualityMetric(BaseMetricTest):
         model = base_model
         model._github_metadata = {
             "stargazers_count": 150,  # 3 * 50 = 3 * 0.01 = 0.03
-            "forks_count": 30,        # 3 * 10 = 3 * 0.01 = 0.03
-            "avg_daily_commits_30d": 2.0  # 2 * 0.05 = 0.1
+            "forks_count": 30,  # 3 * 10 = 3 * 0.01 = 0.03
+            "avg_daily_commits_30d": 2.0,  # 2 * 0.05 = 0.1
         }
         return model
 
@@ -34,7 +34,7 @@ class TestCodeQualityMetric(BaseMetricTest):
             "stargazers_count": 100,
             "forks_count": 20,
             "avg_daily_commits_30d": 1.0,
-            "clone_url": "https://github.com/test/repo.git"
+            "clone_url": "https://github.com/test/repo.git",
         }
         return model
 
@@ -61,8 +61,7 @@ class TestCodeQualityMetric(BaseMetricTest):
         mock_clone.return_value = MagicMock()
 
         result: bool = metric._clone_repository(
-            "https://github.com/test/repo.git",
-            "/tmp/test"
+            "https://github.com/test/repo.git", "/tmp/test"
         )
 
         assert result is True
@@ -81,8 +80,7 @@ class TestCodeQualityMetric(BaseMetricTest):
         mock_clone.side_effect = GitCommandError("clone", "git clone failed")
 
         result: bool = metric._clone_repository(
-            "https://github.com/test/repo.git",
-            "/tmp/test"
+            "https://github.com/test/repo.git", "/tmp/test"
         )
 
         assert result is False
@@ -96,8 +94,7 @@ class TestCodeQualityMetric(BaseMetricTest):
         mock_clone.side_effect = GitError("git error")
 
         result: bool = metric._clone_repository(
-            "https://github.com/test/repo.git",
-            "/tmp/test"
+            "https://github.com/test/repo.git", "/tmp/test"
         )
 
         assert result is False

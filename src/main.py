@@ -1,3 +1,55 @@
+"""
+main.py
+=======
+CLI entry point for the Model Hub evaluation tool.
+
+This script reads a CSV-style input file where each line includes up to three URLs
+(model, code, dataset — in any order). It validates and classifies the URLs, evaluates
+each model using a fixed set of metrics, and prints results to STDOUT in NDJSON format.
+
+Responsibilities
+----------------
+- Validate environment and command-line arguments.
+- Parse and classify URLs from the input file.
+- Coordinate evaluation via the `ModelCatalogue` class.
+- Output one NDJSON object per model to STDOUT.
+
+Expected Input Format
+---------------------
+Each line must contain **exactly three comma-separated fields** in the following order:
+    - Code repository URL (optional)
+    - Dataset URL (optional)
+    - Model URL (required)
+
+Example:
+    https://github.com/org/repo,https://dataset.url,https://huggingface.co/org/model
+
+Environment
+-----------
+- `GITHUB_TOKEN` (required): Used to authenticate GitHub API requests.
+- `LOG_LEVEL` (optional): Set to 1 (INFO) or 2 (DEBUG) to enable logging.
+- `LOG_FILE` (optional): Path to a file where logs should be written.
+
+Exit Codes
+----------
+- 0: Success
+- 1: CLI, input, or evaluation error
+
+Usage
+-----
+With helper script:
+    $ ./run /absolute/path/to/input.txt
+
+Or directly:
+    $ python -m src.main /absolute/path/to/input.txt
+
+Notes
+-----
+- URL validation and metadata fetching are handled by utilities and metric classes.
+- Logging is optional and silent by default unless explicitly enabled.
+- This module avoids direct network calls aside from GitHub token validation.
+"""
+
 import os
 import sys
 import requests
@@ -11,64 +63,55 @@ from src.ModelCatalogue import ModelCatalogue
 def validate_github_token() -> bool:
     """
     Validate the GITHUB_TOKEN environment variable.
-    
+
     Returns:
         bool: True if token is valid, False otherwise
     """
     github_token = os.getenv("GITHUB_TOKEN")
-    
+
     if not github_token:
         logger.error("GITHUB_TOKEN environment variable is not set")
         return False
-    
+
     # Skip validation in test environment
     if any(x in sys.modules for x in ['pytest', '_pytest']):
         logger.info("Skipping GitHub token validation in test environment")
         return True
-    
+
     try:
         # Test token with a simple API call
         headers = {
             "Accept": "application/vnd.github.v3+json",
             "Authorization": f"token {github_token}"
         }
-        
+
         # Use a simple API call to validate the token
-        response = requests.get("https://api.github.com/user", headers=headers, timeout=10)
-        
+        response = requests.get(
+            "https://api.github.com/user", headers=headers, timeout=10
+        )
+
         if response.status_code == 200:
             logger.info("GitHub token is valid")
             return True
         else:
-            logger.error(f"GitHub token validation failed with status {response.status_code}")
+            logger.error(
+                f"GitHub token validation failed with status {response.status_code}"
+            )
             return False
-            
+
     except requests.exceptions.RequestException as e:
         logger.error(f"Error validating GitHub token: {e}")
         return False
 
 
 def run_catalogue(file_path: str) -> int:
-    """
-    Process an ASCII-encoded, newline-delimited file containing URLs and
-    build a model catalogue. Finish by printing the generated catalogue report.
-
-    Args:
-        file_path (str): Absolute path to the file containing URLs.
-
-    Returns:
-        int: 0 if all URLs are processed successfully, 1 if any error occurs.
-    """
-    # Validate GitHub token before proceeding
     if not validate_github_token():
         logger.error("Invalid or missing GITHUB_TOKEN. Exiting.")
         return 1
-    
+
     logger.info(f"Running model catalogue on file: {file_path}")
     catalogue = ModelCatalogue()
-    success = True
 
-    # Extract URLs line-by-line, create models, and add them to the catalogue
     try:
         with open(file_path, 'r', encoding='ascii') as f:
             for line_num, line in enumerate(f, 1):
@@ -77,23 +120,29 @@ def run_catalogue(file_path: str) -> int:
                     logger.warning(f"Skipping empty line {line_num}")
                     continue
 
+                # Parse URL Fields into Parts
                 parts = [part.strip() for part in line.split(',')]
+
+                # Exactly 3 URL Fields Must Exist
                 if len(parts) != 3:
                     logger.error(
-                        "Line {} must have exactly 3 comma-separated fields: {}",
-                        line_num,
-                        line
+                        f"Line {line_num} must have 3 comma-separated fields: {line}"
                     )
-                    exit(1)
+                    return 1
+                code_url, dataset_url, model_url = parts
 
-                # Filter out empty strings
-                urls = [url for url in parts if url]
+                # Model URL Must Exist
+                if not model_url:
+                    logger.error(
+                        f"Line {line_num} is missing a required model URL: {line}"
+                    )
+                    return 1
 
                 try:
-                    catalogue.addModel(Model(urls))
+                    catalogue.addModel(Model([code_url, dataset_url, model_url]))
                 except Exception as e:
                     logger.error(f"Error processing line {line_num}: {e}")
-                    success = False
+                    return 1
 
     except FileNotFoundError:
         logger.error(f"File not found: {file_path}")
@@ -102,15 +151,12 @@ def run_catalogue(file_path: str) -> int:
         logger.error(f"Unexpected error reading file: {e}")
         return 1
 
-    # Evaluate the models according to our metrics
     catalogue.evaluateModels()
-
-    # Print the results
     print(catalogue.generateReport())
-    return 0 if success else 1
+    return 0
 
 
-def configure_logging():
+def configure_logging() -> None:
     logger.remove()
     log_level_env = os.getenv("LOG_LEVEL", "0").strip()
     log_file = os.getenv("LOG_FILE", "").strip()

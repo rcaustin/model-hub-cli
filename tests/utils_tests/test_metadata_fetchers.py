@@ -1,5 +1,5 @@
 from unittest.mock import MagicMock
-from src.util.metadata_fetchers import HuggingFaceFetcher, GitHubFetcher
+from src.util.metadata_fetchers import HuggingFaceFetcher, GitHubFetcher, DatasetFetcher
 
 
 # HuggingFaceFetcher Tests
@@ -15,19 +15,28 @@ def test_huggingface_fetcher_success():
     metadata = fetcher.fetch_metadata(url)
 
     session.get.assert_called_once_with(
-        "https://huggingface.co/api/models/organization/model-id",
-        timeout=5
+        "https://huggingface.co/api/models/organization/model-id", timeout=5
     )
     assert metadata == {"id": "model-id", "downloads": 1000}
 
 
-def test_huggingface_fetcher_invalid_url():
+def test_huggingface_fetcher_invalid_url_missing_path():
     session = MagicMock()
     fetcher = HuggingFaceFetcher(session=session)
 
-    # Missing model path
+    # Missing model path parts (less than 2 parts in path)
     metadata = fetcher.fetch_metadata("https://huggingface.co/")
-    assert metadata is None
+    assert metadata == {}
+    session.get.assert_not_called()
+
+
+def test_huggingface_fetcher_invalid_url_not_hf_domain():
+    session = MagicMock()
+    fetcher = HuggingFaceFetcher(session=session)
+
+    # URL not starting with huggingface.co
+    metadata = fetcher.fetch_metadata("https://example.com/org/model")
+    assert metadata == {}
     session.get.assert_not_called()
 
 
@@ -39,8 +48,17 @@ def test_huggingface_fetcher_http_failure():
     fetcher = HuggingFaceFetcher(session=session)
     metadata = fetcher.fetch_metadata("https://huggingface.co/org/model")
 
-    assert metadata is None
+    assert metadata == {}
     session.get.assert_called_once()
+
+
+def test_huggingface_fetcher_no_url():
+    fetcher = HuggingFaceFetcher()
+    metadata = fetcher.fetch_metadata(None)
+    assert metadata == {}
+
+    metadata = fetcher.fetch_metadata("")
+    assert metadata == {}
 
 
 # GitHubFetcher Tests
@@ -60,18 +78,18 @@ def test_github_fetcher_success():
     repo_response.json.return_value = {
         "clone_url": "https://github.com/org/repo.git",
         "stargazers_count": 100,
-        "forks_count": 50
+        "forks_count": 50,
     }
 
     # Mock commit activity response
     commit_response = MagicMock(ok=True)
-    commit_response.json.return_value = [{}]*150  # 150 commits in last 30 days
+    commit_response.json.return_value = [{}] * 150  # 150 commits in last 30 days
 
     session.get.side_effect = [
         contrib_response,
         license_response,
         repo_response,
-        commit_response
+        commit_response,
     ]
 
     fetcher = GitHubFetcher(session=session)
@@ -84,18 +102,18 @@ def test_github_fetcher_success():
         "clone_url": "https://github.com/org/repo.git",
         "stargazers_count": 100,
         "forks_count": 50,
-        "avg_daily_commits_30d": 5
+        "avg_daily_commits_30d": 5,
     }
     assert session.get.call_count == 4
 
 
-def test_github_fetcher_invalid_url():
+def test_github_fetcher_invalid_url_not_github():
     session = MagicMock()
     fetcher = GitHubFetcher(session=session)
 
-    # Not a GitHub URL
+    # URL domain is not github.com
     metadata = fetcher.fetch_metadata("https://example.com/org/repo")
-    assert metadata is None
+    assert metadata == {}
     session.get.assert_not_called()
 
 
@@ -103,9 +121,9 @@ def test_github_fetcher_missing_path_parts():
     session = MagicMock()
     fetcher = GitHubFetcher(session=session)
 
-    # Path too short
+    # Path too short (only one segment)
     metadata = fetcher.fetch_metadata("https://github.com/org")
-    assert metadata is None
+    assert metadata == {}
     session.get.assert_not_called()
 
 
@@ -124,18 +142,18 @@ def test_github_fetcher_partial_failure():
     repo_response.json.return_value = {
         "clone_url": "https://github.com/org/repo.git",
         "stargazers_count": 100,
-        "forks_count": 50
+        "forks_count": 50,
     }
 
     # Commit response succeeds
     commit_response = MagicMock(ok=True)
-    commit_response.json.return_value = [{}]*150  # 150 commits in last 30 days
+    commit_response.json.return_value = [{}] * 150  # 150 commits in last 30 days
 
     session.get.side_effect = [
         contrib_response,
         license_response,
         repo_response,
-        commit_response
+        commit_response,
     ]
 
     fetcher = GitHubFetcher(session=session)
@@ -146,6 +164,84 @@ def test_github_fetcher_partial_failure():
         "clone_url": "https://github.com/org/repo.git",
         "stargazers_count": 100,
         "forks_count": 50,
-        "avg_daily_commits_30d": 5
+        "avg_daily_commits_30d": 5,
     }
     assert session.get.call_count == 4
+
+
+def test_github_fetcher_no_url():
+    fetcher = GitHubFetcher()
+    metadata = fetcher.fetch_metadata(None)
+    assert metadata == {}
+
+    metadata = fetcher.fetch_metadata("")
+    assert metadata == {}
+
+
+# DatasetFetcher Tests
+def test_dataset_fetcher_success():
+    session = MagicMock()
+    mock_response = MagicMock()
+    mock_response.ok = True
+    mock_response.json.return_value = {"id": "dataset-id", "downloads": 5000}
+    session.get.return_value = mock_response
+
+    fetcher = DatasetFetcher(session=session)
+    url = "https://huggingface.co/datasets/xlangai/AgentNet"
+    metadata = fetcher.fetch_metadata(url)
+
+    session.get.assert_called_once_with(
+        "https://huggingface.co/api/datasets/xlangai/AgentNet", timeout=5
+    )
+    assert metadata == {"id": "dataset-id", "downloads": 5000}
+
+
+def test_dataset_fetcher_invalid_url_missing_datasets_segment():
+    session = MagicMock()
+    fetcher = DatasetFetcher(session=session)
+
+    # Path missing 'datasets' segment at start
+    metadata = fetcher.fetch_metadata("https://huggingface.co/xlangai/AgentNet")
+    assert metadata == {}
+    session.get.assert_not_called()
+
+
+def test_dataset_fetcher_non_huggingface_url():
+    session = MagicMock()
+    fetcher = DatasetFetcher(session=session)
+
+    # Domain not huggingface.co
+    metadata = fetcher.fetch_metadata("https://example.com/datasets/org/dataset")
+    assert metadata == {}
+    session.get.assert_not_called()
+
+
+def test_dataset_fetcher_malformed_path():
+    session = MagicMock()
+    fetcher = DatasetFetcher(session=session)
+
+    # Path too short (less than 3 segments)
+    metadata = fetcher.fetch_metadata("https://huggingface.co/datasets/org")
+    assert metadata == {}
+    session.get.assert_not_called()
+
+
+def test_dataset_fetcher_http_failure():
+    session = MagicMock()
+    mock_response = MagicMock(ok=False, status_code=404)
+    session.get.return_value = mock_response
+
+    fetcher = DatasetFetcher(session=session)
+    metadata = fetcher.fetch_metadata("https://huggingface.co/datasets/org/dataset")
+
+    assert metadata == {}
+    session.get.assert_called_once()
+
+
+def test_dataset_fetcher_no_url():
+    fetcher = DatasetFetcher()
+    metadata = fetcher.fetch_metadata("")
+    assert metadata == {}
+
+    metadata = fetcher.fetch_metadata(None)
+    assert metadata == {}

@@ -21,7 +21,10 @@ def mock_model():
         yield MockModel
 
 
-def test_run_catalogue_success(tmp_path, mock_model_catalogue, mock_model):
+@patch("src.main.validate_github_token", return_value=True)
+def test_run_catalogue_success(
+    mock_validate, tmp_path, mock_model_catalogue, mock_model
+):
     # Create a temp file with valid lines (3 comma-separated URLs)
     file_content = "url1,url2,url3\nurl4,url5,url6\n"
     file_path = tmp_path / "input.txt"
@@ -86,7 +89,9 @@ def test_main_entrypoint_with_arg(
 
     test_argv = ["main.py", str(file_path)]
 
-    with patch("sys.argv", test_argv), patch("sys.exit") as mock_exit:
+    with patch("sys.argv", test_argv), patch("sys.exit") as mock_exit, patch(
+        "src.main.validate_github_token", return_value=True
+    ):
         main.configure_logging()
         # call main block code manually:
         if len(sys.argv) < 2:

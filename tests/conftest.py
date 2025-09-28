@@ -35,6 +35,14 @@ class StubModelData:
     def github_metadata(self, value: Optional[Dict[str, Any]]):
         self._github_metadata = value
 
+    @property
+    def dataset_metadata(self) -> Optional[Dict[str, Any]]:
+        return self._dataset_metadata
+
+    @dataset_metadata.setter
+    def dataset_metadata(self, value: Optional[Dict[str, Any]]):
+        self._dataset_metadata = value
+
 
 @pytest.fixture
 def base_model() -> StubModelData:
@@ -45,7 +53,7 @@ def base_model() -> StubModelData:
     return StubModelData(
         modelLink="https://huggingface.co/microsoft/DialoGPT-medium",
         codeLink="https://github.com/huggingface/transformers",
-        datasetLink="https://huggingface.co/datasets/squad"
+        datasetLink="https://huggingface.co/datasets/squad",
     )
 
 
@@ -65,9 +73,9 @@ def sample_urls() -> list[str]:
     Used to simulate bundled input.
     """
     return [
-        "https://huggingface.co/datasets/squad",
-        "https://github.com/huggingface/transformers",
-        "https://huggingface.co/microsoft/DialoGPT-medium"
+        'https://github.com/huggingface/transformers',       # codeLink
+        'https://huggingface.co/datasets/squad',             # datasetLink
+        'https://huggingface.co/microsoft/DialoGPT-medium'   # modelLink
     ]
 
 
@@ -76,6 +84,7 @@ def intercept_loguru_logs(caplog):
     """
     Redirect loguru logs to standard logging so pytest caplog can capture them.
     """
+
     class PropagateHandler(logging.Handler):
         def emit(self, record):
             logging.getLogger(record.name).handle(record)
