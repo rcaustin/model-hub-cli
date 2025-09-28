@@ -1,3 +1,40 @@
+"""
+DatasetQualityMetric.py
+=======================
+Evaluates availability and basic quality indicators for the dataset URL.
+
+Signals (examples)
+------------------
+- Dataset landing page reachable with descriptive text
+- Clear license/usage terms and provenance
+- Basic stats present (size, #items, classes, modalities)
+- Download/readme files detectable; checksum or versioning info
+
+Inputs (from context)
+---------------------
+- urls["dataset"]: str | None
+- dataset: dict like {
+    "reachable": bool,
+    "description": str | None,
+    "license": str | None,
+    "size_bytes": int | None,
+    "num_items": int | None,
+    "version": str | None,
+  }
+
+Scoring (0–1)
+-------------
+- 1.0 : reachable + license + basic stats (≥2 of: size, num_items, version)
+- 0.5 : reachable + minimal description but missing key fields
+- 0.0 : no dataset URL or unreachable / empty info
+
+Limitations
+-----------
+- Heuristics depend on parsable descriptors; opaque portals may under-score.
+- Private/paid datasets considered unavailable without explicit access.
+"""
+
+
 import os
 import json
 import re

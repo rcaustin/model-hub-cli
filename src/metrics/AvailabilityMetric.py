@@ -1,3 +1,33 @@
+"""
+AvailabilityMetric.py
+=====================
+Checks the presence and basic reachability of the three URL categories:
+model, code repository, and dataset.
+
+Signal
+------
+- Strong positive when expected URLs exist and are reachable.
+- Neutral/partial when some are present or cannot be verified.
+- Negative when all expected artifacts are missing/unreachable.
+
+Inputs (from context)
+---------------------
+- urls: {"model": str|None, "code": str|None, "dataset": str|None}
+- metadata: may include booleans/flags like {"code_repo": {...}}, {"dataset": {..., "reachable": bool}}
+
+Scoring (0–1)
+-------------
+- 1.0  : ≥2 categories present and reachable (including "code" highly weighted)
+- 0.5  : exactly 1 category present/reachable
+- 0.0  : none present/reachable
+
+Limitations
+-----------
+- "Reachability" is a coarse probe; private repos or transient network issues
+  may reduce score conservatively.
+"""
+
+
 import requests
 from loguru import logger
 

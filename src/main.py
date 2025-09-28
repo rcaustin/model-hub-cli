@@ -1,3 +1,65 @@
+"""
+main.py
+========
+CLI entry point for Model Hub CLI.
+
+This module parses command-line arguments, reads an input file where each
+line contains 1–3 URLs (order-agnostic) corresponding to a model, code
+repository, and/or dataset, and delegates batch processing to the
+``ModelCatalogue``. Results are emitted to STDOUT as one NDJSON object
+per input line, including per-metric scores, a composite NetScore, and
+latency fields.
+
+Responsibilities
+---------------
+- Validate CLI arguments and input file readability.
+- Read and iterate lines of raw URLs (whitespace-delimited).
+- Delegate grouping, metadata fetching, metric execution, and aggregation
+  to core modules (``ModelCatalogue``, ``Model``, ``metrics/*``,
+  ``util/url_utils.py``, ``util/metadata_fetchers.py``).
+- Stream NDJSON output to STDOUT (suitable for pipelines/CI).
+
+Expected Input Format
+---------------------
+Each non-empty line contains 1–3 URLs separated by spaces. The order does
+not matter; URLs are classified into {model, code, dataset} categories.
+
+Example:
+    https://huggingface.co/distilbert-base-uncased https://github.com/huggingface/transformers https://example.com/dataset
+    https://huggingface.co/openai/whisper-base https://github.com/openai/whisper
+
+Environment
+-----------
+- GITHUB_TOKEN (optional): Improves GitHub API rate limits and metadata completeness.
+
+Exit Codes
+----------
+- 0: Success.
+- Non-zero: CLI argument/IO errors or unrecoverable failures; details are logged.
+
+Usage
+-----
+Run with the helper script:
+    $ ./run /absolute/path/to/inputs.txt
+
+Or directly with Python:
+    $ python -m src.main /absolute/path/to/inputs.txt
+
+Key Functions / Flow
+--------------------
+- parse_args(argv) -> argparse.Namespace
+- main(argv=None) -> int
+  - Validates input path
+  - Streams lines to ModelCatalogue for evaluation
+  - Writes NDJSON results to STDOUT
+  - Returns an appropriate process exit code
+
+Notes
+-----
+- This module should avoid performing network calls directly; those live in util/metadata_fetchers.py.
+- Keep side effects minimal and testable. Use small helpers and pure functions where possible.
+"""
+
 import os
 import sys
 import requests

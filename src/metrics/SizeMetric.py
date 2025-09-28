@@ -1,3 +1,28 @@
+"""
+SizeMetric.py
+=============
+Captures basic size-related signals (e.g., repository/model size) and
+applies simple buckets or sanity checks.
+
+Inputs (from context)
+---------------------
+- code_repo.size_bytes: int | None
+- model_card.size_bytes: int | None (if known)
+
+Scoring (0–1) (illustrative)
+----------------------------
+- 1.0 : size within expected/healthy range for the domain
+- 0.5 : unusually small/large but still plausible
+- 0.0 : missing size info or pathological extremes (when clearly erroneous)
+
+Limitations
+-----------
+- Size alone is not quality—treat as a weak signal in NetScore.
+- Heuristics should be calibrated to the project’s typical repos/models.
+"""
+
+
+
 from src.Interfaces import ModelData
 from src.Metric import Metric
 from loguru import logger
