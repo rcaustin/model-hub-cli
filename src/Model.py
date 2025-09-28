@@ -1,3 +1,74 @@
+"""
+Model.py
+========
+Core domain object representing a single evaluated "model bundle" composed of up
+to three URLs: model, code repository, and dataset. The Model is responsible for
+holding grouped URLs plus fetched metadata, executing the metric suite, and
+producing a composite **NetScore** alongside per-metric results.
+
+Responsibilities
+----------------
+- Store normalized inputs:
+  - urls: dict with keys in { "model", "code", "dataset" } (values may be None)
+  - metadata: dict populated by util/metadata_fetchers.py
+- Prepare a reusable **context** dict passed to all metrics.
+- Execute each ``Metric`` (see src/Metric.py, src/metrics/*) and collect:
+  ``(score: float, latency_ms: int)``
+- Aggregate scores using configured weights to compute ``net_score`` and record
+  total latency for the aggregation path.
+
+Attributes (typical)
+--------------------
+- self.urls: dict[str, str|None]
+- self.metadata: dict[str, Any]
+- self.metrics: list[Metric]      # concrete metric objects
+- self.results: dict[str, float]  # per-metric scores by metric.name
+- self.latencies: dict[str, int]  # per-metric latencies (ms)
+- self.net_score: float
+- self.net_score_latency: int
+
+Workflow
+--------
+1) Initialize with grouped URLs and fetched metadata.
+2) Build ``context`` with everything metrics may need (URLs, metadata, tokens).
+3) For each metric in ``self.metrics``:
+     score, latency = metric.evaluate(context)
+     record in ``self.results`` and ``self.latencies``
+4) Compute weighted NetScore and ``net_score_latency``.
+5) Provide a serializable summary (dict) for NDJSON output.
+
+Scoring
+-------
+- Each metric exposes ``name`` and ``weight``.
+- NetScore = sum(weight_i * score_i) / sum(weights_present)
+- Missing metrics (or missing inputs) must not crash evaluation; gracefully use
+  defaults and/or skip with clear logging.
+
+Error Handling & Resilience
+---------------------------
+- Metrics should never raise uncaught exceptions; catch and return conservative
+  scores (e.g., 0.0) with warnings where appropriate.
+- Handle absent fields in ``metadata`` and URLs = None.
+- Keep evaluation deterministic for a given context.
+
+Testing Notes
+-------------
+- Prefer fixture-based metadata (offline) for unit tests.
+- Assert 0 ≤ scores ≤ 1, int latencies ≥ 0, and stable metric ordering.
+- Verify that NetScore respects metric weights and missing metrics are handled.
+
+Environment
+-----------
+- ``GITHUB_TOKEN`` (REQUIRED) must be present so underlying fetchers can improve 
+  rate limits and completeness.
+
+Thread-Safety
+-------------
+- Instances are not inherently thread-safe; if parallelizing evaluation, ensure
+  each Model is used by a single worker or guard shared state appropriately.
+"""
+
+import time
 import os
 import time
 from typing import Any, Dict, List, Optional, Union

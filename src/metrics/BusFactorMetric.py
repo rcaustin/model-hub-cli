@@ -1,3 +1,47 @@
+"""
+BusFactorMetric.py
+==================
+Estimates repository "bus factor" risk—the likelihood that project knowledge is
+concentrated in very few people.
+
+Signal
+------
+- Strong positive when there are multiple active maintainers and a healthy
+  spread of recent contributors.
+- Negative when commits/issues/ownership are dominated by one person or a
+  very small group.
+
+Inputs (from context)
+---------------------
+- code_repo: dict with fields like:
+    {
+      "contributors": [str, ...] or [{"login": str, "contributions": int}, ...],
+      "last_commit_iso": str | None,
+      "forks": int,
+      "stars": int,
+      ...
+    }
+
+Heuristics (illustrative)
+-------------------------
+- n_active = number of recent contributors (e.g., last 3–6 months)
+- dominance_ratio = top_contributor_contribs / total_recent_contribs
+- Consider org ownership vs. single maintainer, bus-factor-relevant metadata.
+
+Scoring (0–1)
+-------------
+- 1.0 : n_active >= 3 and dominance_ratio <= 0.5
+- 0.5 : n_active in {2,3} or dominance_ratio <= 0.75
+- 0.0 : n_active <= 1 or dominance_ratio > 0.9
+
+Limitations
+-----------
+- API data may omit private contributors or skew recency windows.
+- Fork-based signals (stars/forks) are weak proxies; use cautiously.
+- Prefer recency windows and normalize for repo size when possible.
+"""
+
+
 from loguru import logger
 
 from src.Interfaces import ModelData

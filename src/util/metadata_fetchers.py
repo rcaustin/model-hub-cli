@@ -1,3 +1,37 @@
+"""
+metadata_fetchers.py
+====================
+Thin wrappers around external APIs/HTML endpoints to gather repo/model/dataset
+metadata needed by metrics.
+
+Responsibilities
+----------------
+- Fetch GitHub repository information (license, stars/forks, last commit,
+  contributors) for classified code URLs.
+- Fetch Hugging Face model card text, tags, and basic model metadata for model URLs.
+- Probe dataset/other URLs for basic reachability and descriptive content.
+- Apply small caching/retry logic; handle rate limits gracefully.
+
+Typical Functions
+-----------------
+- fetch_code_repo(url: str, token: str | None = None) -> dict
+- fetch_model_card(url: str) -> dict
+- fetch_dataset_info(url: str) -> dict
+- build_metadata_bundle(urls: dict[str, str | None], token: str | None = None) -> dict
+    Returns a dict aggregating the pieces above for consumption by Model/metrics.
+
+Error Handling
+--------------
+- Never raise uncaught exceptions for network failures; return partial results
+  with flags like {"reachable": False, "error": "..."} and log a warning.
+- Timeouts should be short and retried a limited number of times.
+
+Testing
+-------
+- Use fixtures to simulate API responses and rate-limit conditions.
+- Ensure deterministic outputs for given inputs (no live network dependency).
+"""
+
 from typing import Any, Dict, Optional
 from urllib.parse import urlparse
 

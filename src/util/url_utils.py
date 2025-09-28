@@ -1,3 +1,42 @@
+"""
+url_utils.py
+============
+Helpers to normalize and classify raw input URLs into semantic buckets:
+{"model", "code", "dataset"}.
+
+Responsibilities
+----------------
+- Normalize raw strings that look like URLs (trim, lower/keep case as needed).
+- Detect well-known patterns (e.g., Hugging Face model repos, GitHub repos).
+- Classify up to three URLs per input line into {model, code, dataset}.
+- Be order-agnostic and resilient to duplicates or missing categories.
+
+Typical Functions
+-----------------
+- is_model_url(url: str) -> bool
+- is_code_url(url: str) -> bool
+- is_dataset_url(url: str) -> bool
+- classify(urls: list[str]) -> dict[str, str | None]
+    Returns a dict with keys "model", "code", "dataset" (values may be None).
+
+Behavioral Notes
+----------------
+- Prefer the first confident match for each category; ignore extras.
+- If a URL matches multiple categories, choose the most specific rule and
+  document the tie-break.
+- Do not raise on malformed URLs; skip or return None for that slot.
+
+Examples
+--------
+Input: ["https://huggingface.co/org/model", "https://github.com/owner/repo"]
+Output: {"model": ".../org/model", "code": ".../owner/repo", "dataset": None}
+
+Testing
+-------
+- See tests/test_url_utils.py for classification edge cases (duplicates,
+  ambiguous URLs, missing scheme, trailing slashes).
+"""
+
 from collections import namedtuple
 from urllib.parse import urlparse
 
