@@ -1,74 +1,53 @@
 """
 Model.py
 ========
-Core domain object representing a single evaluated "model bundle" composed of up
-to three URLs: model, code repository, and dataset. The Model is responsible for
-holding grouped URLs plus fetched metadata, executing the metric suite, and
-producing a composite **NetScore** alongside per-metric results.
+
+This module defines the `Model` class, which represents a machine learning model
+alongside its metadata, source code, dataset, and evaluation scores.
 
 Responsibilities
 ----------------
-- Store normalized inputs:
-  - urls: dict with keys in { "model", "code", "dataset" } (values may be None)
-  - metadata: dict populated by util/metadata_fetchers.py
-- Prepare a reusable **context** dict passed to all metrics.
-- Execute each ``Metric`` (see src/Metric.py, src/metrics/*) and collect:
-  ``(score: float, latency_ms: int)``
-- Aggregate scores using configured weights to compute ``net_score`` and record
-  total latency for the aggregation path.
+- Encapsulate the model, dataset, and code URLs.
+- Fetch and cache metadata from HuggingFace (model, dataset) and GitHub (code).
+- Evaluate the model using a list of provided Metric objects.
+- Store evaluation results and compute an overall NetScore.
 
 Attributes (typical)
 --------------------
-- self.urls: dict[str, str|None]
-- self.metadata: dict[str, Any]
-- self.metrics: list[Metric]      # concrete metric objects
-- self.results: dict[str, float]  # per-metric scores by metric.name
-- self.latencies: dict[str, int]  # per-metric latencies (ms)
-- self.net_score: float
-- self.net_score_latency: int
+- modelLink (str): Required. HuggingFace model URL.
+- codeLink (Optional[str]): Optional GitHub repository URL.
+- datasetLink (Optional[str]): Optional HuggingFace dataset URL.
+- evaluations (dict): Maps metric names to scores (float or dict of floats).
+- evaluationsLatency (dict): Maps metric names to evaluation time in seconds.
 
 Workflow
 --------
-1) Initialize with grouped URLs and fetched metadata.
-2) Build ``context`` with everything metrics may need (URLs, metadata, tokens).
-3) For each metric in ``self.metrics``:
-     score, latency = metric.evaluate(context)
-     record in ``self.results`` and ``self.latencies``
-4) Compute weighted NetScore and ``net_score_latency``.
-5) Provide a serializable summary (dict) for NDJSON output.
+1. Instantiate the `Model` with one to three URLs: `[<code>, <dataset>, model]`.
+2. Metrics can be evaluated with `evaluate()` or in batch with `evaluate_all()`.
+3. Metadata properties (e.g. `hf_metadata`) lazily fetch and cache external data.
+4. Final NetScore is computed from individual metric scores via `computeNetScore()`.
 
 Scoring
 -------
-- Each metric exposes ``name`` and ``weight``.
-- NetScore = sum(weight_i * score_i) / sum(weights_present)
-- Missing metrics (or missing inputs) must not crash evaluation; gracefully use
-  defaults and/or skip with clear logging.
+- Scores may be simple floats (e.g., 0.85) or structured (e.g., size by device).
+- `computeNetScore()` uses a weighted combination of metric scores.
+- The LicenseMetric acts as a gating multiplier on the final score.
+- Metrics with missing or invalid values default to 0.
 
 Error Handling & Resilience
 ---------------------------
-- Metrics should never raise uncaught exceptions; catch and return conservative
-  scores (e.g., 0.0) with warnings where appropriate.
-- Handle absent fields in ``metadata`` and URLs = None.
-- Keep evaluation deterministic for a given context.
-
-Testing Notes
--------------
-- Prefer fixture-based metadata (offline) for unit tests.
-- Assert 0 ≤ scores ≤ 1, int latencies ≥ 0, and stable metric ordering.
-- Verify that NetScore respects metric weights and missing metrics are handled.
+- Fallbacks are in place for missing metadata or failed metric evaluations.
+- Invalid types (e.g. non-dict SizeMetric) are logged and treated as zero.
+- If metadata fetchers fail, the system proceeds with partial data.
 
 Environment
 -----------
-- ``GITHUB_TOKEN`` (REQUIRED) must be present so underlying fetchers can improve 
-  rate limits and completeness.
+- ``GITHUB_TOKEN`` (REQUIRED): Used to authenticate GitHub API requests, which
+  increases rate limits and allows access to private repositories if needed.
 
-Thread-Safety
--------------
-- Instances are not inherently thread-safe; if parallelizing evaluation, ensure
-  each Model is used by a single worker or guard shared state appropriately.
 """
 
-import time
+
 import os
 import time
 from typing import Any, Dict, List, Optional, Union
