@@ -21,8 +21,6 @@ Limitations
 - Heuristics should be calibrated to the project’s typical repos/models.
 """
 
-
-
 from src.Interfaces import ModelData
 from src.Metric import Metric
 from loguru import logger
@@ -77,9 +75,8 @@ class SizeMetric(Metric):
         try:
             # Get model size in GB
             model_size_gb = self._get_model_size(model)
-
             if model_size_gb is None:
-                logger.warning(f"Could not determine model size")
+                logger.warning("Could not determine model size")
                 return {device: 0.0 for device in self.DEVICE_SPECS.keys()}
 
             # Calculate score for each device
@@ -103,14 +100,14 @@ class SizeMetric(Metric):
         """
         try:
             if not model.hf_metadata:
-                logger.warning(f"No Hugging Face metadata available")
+                logger.warning("No Hugging Face metadata available")
                 return None
             metadata = model.hf_metadata
 
             # Get parameter count
             param_count = self._get_parameter_count(metadata)
             if param_count is None:
-                logger.warning(f"Could not find parameter count")
+                logger.warning("Could not find parameter count")
                 return None
 
             # Try to get actual tensor size from metadata, otherwise use default
