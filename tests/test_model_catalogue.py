@@ -3,7 +3,7 @@ import json
 from unittest.mock import MagicMock
 
 from src.Metric import Metric
-from src.Interfaces import ModelData
+from src.ModelData import ModelData
 from src.Model import Model
 from src.ModelCatalogue import ModelCatalogue
 

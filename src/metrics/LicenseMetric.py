@@ -22,12 +22,10 @@ Limitations
 - Multi-license or per-file licensing may need deeper inspection.
 """
 
-
-
 from loguru import logger
 from typing import Any
 
-from src.Interfaces import ModelData
+from src.ModelData import ModelData
 from src.Metric import Metric
 
 

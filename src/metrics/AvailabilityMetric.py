@@ -13,7 +13,8 @@ Signal
 Inputs (from context)
 ---------------------
 - urls: {"model": str|None, "code": str|None, "dataset": str|None}
-- metadata: may include booleans/flags like {"code_repo": {...}}, {"dataset": {..., "reachable": bool}}
+- metadata: may include booleans/flags like {"code_repo": {...}},
+        {"dataset": {..., "reachable": bool}}
 
 Scoring (0–1)
 -------------
@@ -31,7 +32,7 @@ Limitations
 import requests
 from loguru import logger
 
-from src.Interfaces import ModelData
+from src.ModelData import ModelData
 from src.Metric import Metric
 
 

@@ -31,7 +31,7 @@ class MyCustomMetric(Metric):
 
 from abc import ABC, abstractmethod
 from typing import Union
-from src.Interfaces import ModelData
+from src.ModelData import ModelData
 
 
 class Metric(ABC):

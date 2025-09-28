@@ -3,8 +3,8 @@ main.py
 =======
 CLI entry point for the Model Hub evaluation tool.
 
-This script reads a CSV-style input file where each line includes up to three URLs 
-(model, code, dataset — in any order). It validates and classifies the URLs, evaluates 
+This script reads a CSV-style input file where each line includes up to three URLs
+(model, code, dataset — in any order). It validates and classifies the URLs, evaluates
 each model using a fixed set of metrics, and prints results to STDOUT in NDJSON format.
 
 Responsibilities

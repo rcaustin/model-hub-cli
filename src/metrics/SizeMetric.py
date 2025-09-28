@@ -21,7 +21,7 @@ Limitations
 - Heuristics should be calibrated to the project’s typical repos/models.
 """
 
-from src.Interfaces import ModelData
+from src.ModelData import ModelData
 from src.Metric import Metric
 from loguru import logger
 from typing import Optional

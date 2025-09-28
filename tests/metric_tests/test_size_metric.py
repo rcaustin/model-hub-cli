@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import Mock, patch
 from typing import Optional, Any
 from src.metrics.SizeMetric import SizeMetric
-from src.Interfaces import ModelData
+from src.ModelData import ModelData
 
 
 class TestSizeMetric:

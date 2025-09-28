@@ -25,14 +25,12 @@ Limitations
 - Subjective; keep rubric simple and tied to objective signals.
 """
 
-
-
 import re
 from typing import Optional
 
 from loguru import logger
 
-from src.Interfaces import ModelData
+from src.ModelData import ModelData
 from src.Metric import Metric
 
 try:

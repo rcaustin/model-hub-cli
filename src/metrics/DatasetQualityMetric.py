@@ -42,7 +42,7 @@ from typing import Optional, Dict, Any, List
 from loguru import logger
 import requests
 
-from src.Interfaces import ModelData
+from src.ModelData import ModelData
 from src.Metric import Metric
 
 

@@ -32,7 +32,7 @@ from typing import Any, Dict, List
 
 from loguru import logger
 
-from src.Interfaces import ModelData
+from src.ModelData import ModelData
 from src.Metric import Metric
 
 
