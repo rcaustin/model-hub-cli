@@ -38,8 +38,10 @@ def test_evaluation_and_latency_storage(sample_urls):
     model = Model(sample_urls)
     metric = DummyMetric()
 
-    model.evaluate(metric)
+    # Evaluate using the new batch method with a single metric
+    model.evaluate_all([metric])
 
+    # Check evaluations and latencies are stored correctly
     assert "DummyMetric" in model.evaluations
     assert model.evaluations["DummyMetric"] == 0.5
 
@@ -50,9 +52,8 @@ def test_evaluation_and_latency_storage(sample_urls):
 def test_get_score_and_latency_methods_with_float(sample_urls):
     model = Model(sample_urls)
     metric = DummyMetric()
-    model.evaluate(metric)
+    model.evaluate_all([metric])
 
-    # Use correct camelCase method names
     assert model.getScore("DummyMetric") == 0.5
     assert isinstance(model.getLatency("DummyMetric"), int)
 
@@ -60,7 +61,7 @@ def test_get_score_and_latency_methods_with_float(sample_urls):
 def test_get_score_with_dict(sample_urls):
     model = Model(sample_urls)
     metric = ComplexDummyMetric()
-    model.evaluate(metric)
+    model.evaluate_all([metric])
 
     expected_dict = {
         "raspberry_pi": 0.6,

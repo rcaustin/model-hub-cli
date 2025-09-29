@@ -48,14 +48,15 @@ Environment
 """
 
 
+import concurrent.futures
 import os
 import time
 from typing import Any, Dict, List, Optional, Union
 
 from loguru import logger
 
-from src.ModelData import ModelData
 from src.Metric import Metric
+from src.ModelData import ModelData
 from src.util.metadata_fetchers import (DatasetFetcher, GitHubFetcher,
                                         HuggingFaceFetcher)
 
@@ -131,18 +132,22 @@ class Model(ModelData):
         return int(latency * 1000)
 
     def evaluate_all(self, metrics: List[Metric]) -> None:
-        for metric in metrics:
-            self.evaluate(metric)
+        def evaluate_metric(metric: Metric):
+            start = time.time()
+            score = metric.evaluate(self)
+            latency = time.time() - start
+            return (metric, score, latency)
+
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = [executor.submit(evaluate_metric, m) for m in metrics]
+
+            for future in concurrent.futures.as_completed(futures):
+                metric, score, latency = future.result()
+                metric_name = type(metric).__name__
+                self.evaluations[metric_name] = score
+                self.evaluationsLatency[metric_name] = latency
+
         self.computeNetScore()
-
-    def evaluate(self, metric: Metric) -> None:
-        start: float = time.time()
-        score: Union[float, dict[str, float]] = metric.evaluate(self)
-        end: float = time.time()
-
-        metric_name: str = type(metric).__name__
-        self.evaluations[metric_name] = score
-        self.evaluationsLatency[metric_name] = end - start
 
     def getCategory(self) -> str:
         return "MODEL"
