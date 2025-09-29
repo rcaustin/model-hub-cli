@@ -56,13 +56,16 @@ class PerformanceClaimsMetric(Metric):
 
     # Common performance metric patterns (tightened to avoid generic/ambiguous matches)
     PERFORMANCE_PATTERNS = [
+        # Generic: "<metric> [score] (of|is|=|:) <number>%?"
+        r"\b(?:accuracy|f1(?:-score)?|precision|recall|auc|bleu|rouge(?:-l)?|perplexity|loss)(?:\s*score)?(?:\s*(?:of|is|=|:))?\s*(\d+\.?\d*)\s*%?\b",
         r"\baccuracy[:\s]*(\d+\.?\d*)\s*%?\b",
         r"\bf1(?:-score)?[:\s]*(\d+\.?\d*)\s*%?\b",
         r"\bprecision[:\s]*(\d+\.?\d*)\s*%?\b",
         r"\brecall[:\s]*(\d+\.?\d*)\s*%?\b",
         r"\bauc[:\s]*(\d+\.?\d*)\s*%?\b",
-        r"\bbleu(?:\s*score)?[:\s]*(\d+\.?\d*)\b",
-        r"\brouge(?:-l)?[:\s]*(\d+\.?\d*)\b",
+        # Allow "score of|is|=|:" for BLEU/ROUGE variations
+        r"\bbleu(?:\s*score)?(?:\s*(?:of|is|=|:))?\s*(\d+\.?\d*)\b",
+        r"\brouge(?:-l)?(?:\s*score)?(?:\s*(?:of|is|=|:))?\s*(\d+\.?\d*)\b",
         r"\bperplexity[:\s]*(\d+\.?\d*)\b",
         r"\bloss[:\s]*(\d+\.?\d*)\b",
         # Number then metric
@@ -109,20 +112,49 @@ class PerformanceClaimsMetric(Metric):
 
         if not claims_found:
             logger.info("PerformanceClaimsMetric: No performance claims found -> 0.0")
-            return 0.0
+            return self._normalize_score(0.0)
 
         # Score by top-k average to avoid dilution from many benchmark-only mentions
-        scores = [self._score_claim(c) for c in claims_found]
-        scores.sort(reverse=True)
-        topk = scores[:3]  # consider the three strongest signals
-        final_score = sum(topk) / len(topk)
+        try:
+            scores = [self._normalize_score(self._score_claim(c)) for c in claims_found]
+            scores.sort(reverse=True)
+            topk = scores[:3]  # consider the three strongest signals
+            avg = sum(topk) / len(topk) if topk else 0.0
+        except Exception as e:
+            logger.debug("PerformanceClaimsMetric: error while averaging scores: {}", e)
+            avg = 0.0
 
-        final_score = max(0.0, min(final_score, 1.0))
+        avg = self._normalize_score(avg)
         logger.info(
             "PerformanceClaimsMetric: {} claims found, top-k avg -> {}",
-            len(claims_found), final_score
+            len(claims_found), avg
         )
-        return final_score
+        return avg
+
+    def _normalize_score(self, value) -> float:
+        """
+        Coerce any input to a float in [0.0, 1.0].
+        - Non-numeric -> 0.0
+        - NaN/Inf -> 0.0 (then clamp)
+        - Always returns a Python float
+        """
+        try:
+            v = float(value)  # Coerce to float first
+        except Exception:
+            return 0.0
+
+        # Handle NaN / Inf cleanly
+        if v != v or v == float("inf") or v == float("-inf"):
+            v = 0.0
+
+        # Clamp to [0, 1]
+        if v < 0.0:
+            v = 0.0
+        elif v > 1.0:
+            v = 1.0
+
+        # Ensure exact float type (not numpy scalar, etc.)
+        return float(v)
 
     def _extract_hf_claims(self, model: ModelData) -> List[Dict[str, Any]]:
         """Extract performance claims from HuggingFace metadata, including model-index."""
@@ -221,7 +253,12 @@ class PerformanceClaimsMetric(Metric):
             for match in re.finditer(pattern, text_lower, re.IGNORECASE):
                 num = None
                 if match.lastindex:
-                    num = match.group(1)
+                    # choose the last captured numeric-looking group to be robust across patterns
+                    for gi in range(match.lastindex, 0, -1):
+                        g = match.group(gi)
+                        if g and re.fullmatch(r"\d+\.?\d*", g):
+                            num = g
+                            break
                 context = _window(match.start(), match.end())
                 if num and self._looks_like_noise(num, context):
                     continue
@@ -253,15 +290,24 @@ class PerformanceClaimsMetric(Metric):
             val = float(num_str)
         except Exception:
             return True
+
         # Years near the match
         if re.search(r"\b(19|20)\d{2}\b", context):
             return True
-        # Versions like v1.2.3 or 1.0.0 or words 'version'
-        if re.search(r"\b(v(?:er)?\.?\s*)?\d+\.\d+(?:\.\d+)?\b", context):
+
+        # Version-like strings:
+        # - Allow single-decimal numbers (e.g., 0.92) which are common for metrics.
+        # - Treat ONLY semantic versions with two dots (e.g., 1.2.3) as noise,
+        #   or explicit mentions of the word 'version'.
+        if re.search(r"\b(?:v(?:er)?\.?\s*)?\d+\.\d+\.\d+\b", context):
             return True
+        if re.search(r"\bversion\b", context):
+            return True
+
         # Extremely large numbers (nonsense for typical metric values)
         if val > 1000:
             return True
+
         return False
 
     def _score_claim(self, claim: Dict[str, Any]) -> float:
@@ -291,14 +337,14 @@ class PerformanceClaimsMetric(Metric):
         ])
 
         if has_number and is_performance_metric and has_benchmark:
-            return 1.0
+            return self._normalize_score(1.0)
         elif has_number and is_performance_metric:
-            return 0.8
+            return self._normalize_score(0.8)
         elif is_performance_metric and has_benchmark:
-            return 0.6
+            return self._normalize_score(0.6)
         elif is_performance_metric:
-            return 0.4
+            return self._normalize_score(0.4)
         elif has_benchmark:
-            return 0.2
+            return self._normalize_score(0.2)
         else:
-            return 0.0
+            return self._normalize_score(0.0)
