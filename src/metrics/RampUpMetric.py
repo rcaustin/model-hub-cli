@@ -15,10 +15,9 @@ class RampUpMetric(Metric):
     def evaluate(self, model: ModelData) -> float:
         logger.debug("Evaluating Ramp Up Time Metric...")
 
-        # Extract README and model_index content
+        # Extract README
         readme_text: Optional[str] = model.hf_metadata.get("readme")
-        model_index_text: Optional[str] = model.hf_metadata.get("model_index")
-        if not readme_text and not model_index_text:
+        if not readme_text:
             logger.warning(
                 "No README.md or model_index.json data found in model metadata; "
                 "returning 0.0 score."
@@ -26,8 +25,7 @@ class RampUpMetric(Metric):
             return 0.0
 
         # Extract Relevant Sections
-        if readme_text:
-            readme_text = self._extract_relevant_sections(readme_text or "")
+        readme_text = self._extract_relevant_sections(readme_text or "")
 
         # Construct the prompt for the LLM
         prompt: str = (
@@ -48,8 +46,7 @@ class RampUpMetric(Metric):
             "You may include justifications *after* the score if needed, but "
             "only the first line will be used as the final metric.\n"
         )
-        combined_text: str = "\n\n".join(filter(None, [readme_text, model_index_text]))
-        full_prompt: str = combined_text + "\n\n" + prompt
+        full_prompt: str = readme_text + "\n\n" + prompt
 
         # Query the LLM and extract the score
         response: str = self.llm.send_prompt(full_prompt)
