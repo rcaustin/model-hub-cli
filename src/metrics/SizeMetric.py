@@ -118,6 +118,13 @@ class SizeMetric(Metric):
             param_count = self._get_parameter_count(metadata)
             if param_count is None:
                 logger.warning("Could not find parameter count")
+                # Fallback: use usedStorage if available
+                if "usedStorage" in metadata:
+                    size_bytes = metadata["usedStorage"]
+                    size_gb = size_bytes / (1024 ** 3)
+                    logger.info(f"Using usedStorage size: {size_gb:.2f}GB")
+                    return size_gb
+                logger.info("No usedStorage info available")
                 return None
 
             # Try to get actual tensor size from metadata, otherwise use default
