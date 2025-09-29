@@ -1,166 +1,50 @@
-"""
-AvailabilityMetric.py
-====================
-
-Evaluates the availability of model resources by checking accessibility of:
-- HuggingFace model
-- GitHub repository
-- Dataset (if provided)
-
-Signal
-------
-Checks HTTP accessibility and API responses for the provided URLs.
-
-Inputs (from context)
----------------------
-- model.modelLink (HuggingFace model URL)
-- model.codeLink (GitHub repository URL)
-- model.datasetLink (HuggingFace dataset URL)
-
-Scoring (0–1)
--------------
-Returns a score representing the fraction of accessible resources (0.0 to 1.0).
-
-Limitations
------------
-- Relies on network requests which may be slow or fail intermittently
-- Only checks HTTP status, not deeper content validation or permissions
-- Assumes HuggingFace URLs are well-formed with organization and model/dataset IDs
-- GitHub API rate limits could affect repeated checks
-
-Note
-----
-This metric corresponds to the "Available Code and Dataset Score" in the specification,
-assessing the online availability of key model components.
-"""
-
-import requests
 from loguru import logger
 
-from src.ModelData import ModelData
 from src.Metric import Metric
+from src.ModelData import ModelData
 
 
 class AvailabilityMetric(Metric):
     """
     Evaluates the availability of model resources by checking:
-    1. HuggingFace model accessibility
-    2. GitHub repository accessibility
-    3. Dataset accessibility (if provided)
+    1. HuggingFace model metadata availability
+    2. GitHub repository metadata availability
+    3. Dataset metadata availability
 
     Returns a score from 0.0 (unavailable) to 1.0 (fully available).
     """
 
     def evaluate(self, model: ModelData) -> float:
-        """
-        Evaluate the availability of all model resources.
-
-        Args:
-            model: ModelData object containing URLs and metadata
-
-        Returns:
-            float: Availability score from 0.0 to 1.0
-        """
         logger.info("Evaluating AvailabilityMetric...")
 
         total_checks = 0
         successful_checks = 0
 
-        # Check HuggingFace model availability
-        if model.modelLink and "huggingface.co" in model.modelLink:
+        # GitHub repo metadata
+        if model.codeLink:
             total_checks += 1
-            if self._check_huggingface_availability(model.modelLink):
+            if model.github_metadata:
                 successful_checks += 1
-                logger.debug("HuggingFace model is accessible")
+                logger.debug("GitHub repository metadata is available")
             else:
-                logger.warning("HuggingFace model is not accessible")
+                logger.warning("GitHub repository metadata is missing")
 
-        # Check GitHub repository availability
-        if model.codeLink and "github.com" in model.codeLink:
+        # Dataset metadata
+        if model.datasetLink:
             total_checks += 1
-            if self._check_github_availability(model.codeLink):
+            if model.dataset_metadata:
                 successful_checks += 1
-                logger.debug("GitHub repository is accessible")
+                logger.debug("Dataset metadata is available")
             else:
-                logger.warning("GitHub repository is not accessible")
+                logger.warning("Dataset metadata is missing")
 
-        # Check dataset availability
-        if model.datasetLink and "huggingface.co" in model.datasetLink:
-            total_checks += 1
-            if self._check_huggingface_availability(model.datasetLink):
-                successful_checks += 1
-                logger.debug("HuggingFace dataset is accessible")
-            else:
-                logger.warning("HuggingFace dataset is not accessible")
-
-        # Calculate availability score
         if total_checks == 0:
-            logger.warning("No URLs provided for availability checking")
+            logger.warning("No resources to evaluate availability for")
             return 0.0
 
-        availability_score = successful_checks / total_checks
+        score = successful_checks / total_checks
         logger.info(
             "AvailabilityMetric: {}/{} resources available -> {}",
-            successful_checks, total_checks, availability_score
+            successful_checks, total_checks, score
         )
-
-        return availability_score
-
-    def _check_huggingface_availability(self, url: str) -> bool:
-        """
-        Check if a HuggingFace model or dataset is accessible.
-
-        Args:
-            url: HuggingFace URL to check
-
-        Returns:
-            bool: True if accessible, False otherwise
-        """
-        try:
-            # Extract model/dataset ID from URL
-            parts = url.rstrip("/").split("/")
-            if len(parts) < 2:
-                return False
-
-            org, model_id = parts[-2], parts[-1]
-
-            # Check if it's a dataset or model
-            if "/datasets/" in url:
-                api_url = f"https://huggingface.co/api/datasets/{org}/{model_id}"
-            else:
-                api_url = f"https://huggingface.co/api/models/{org}/{model_id}"
-
-            response = requests.get(api_url, timeout=10)
-            return response.status_code == 200
-
-        except Exception as e:
-            logger.debug("Error checking HuggingFace availability: {}", e)
-            return False
-
-    def _check_github_availability(self, url: str) -> bool:
-        """
-        Check if a GitHub repository is accessible.
-
-        Args:
-            url: GitHub URL to check
-
-        Returns:
-            bool: True if accessible, False otherwise
-        """
-        try:
-            from urllib.parse import urlparse
-            parsed = urlparse(url)
-            path_parts = parsed.path.strip("/").split("/")
-
-            if len(path_parts) < 2:
-                return False
-
-            owner, repo = path_parts[0], path_parts[1]
-            api_url = f"https://api.github.com/repos/{owner}/{repo}"
-
-            response = requests.get(api_url, timeout=10)
-            return response.status_code == 200
-
-        except Exception as e:
-            logger.debug("Error checking GitHub availability: {}", e)
-            return False
+        return score
