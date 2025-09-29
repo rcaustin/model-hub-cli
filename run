@@ -98,7 +98,7 @@ case "$ARG" in
   testall)
     run_test_verbose
     ;;
-  /*)
+  /*|[A-Za-z]:*)
     run_program "$ARG"
     ;;
   *)

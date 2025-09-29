@@ -139,12 +139,28 @@ class SizeMetric(Metric):
 
     def _extract_bytes_from_dtype(self, metadata: dict) -> float:
         """
-        Extract number from dtype field names (e.g., 'float16' -> 16, 'int8' -> 8).
-        Returns bytes per parameter, defaults to 2 (float16) if not found.
+        Extract bytes per parameter from dtype info.
+        Checks safetensors first, then config, then defaults to float16 (2 bytes).
         """
         import re
 
         try:
+            # Check safetensors field for dtype
+            if "safetensors" in metadata:
+                safetensors = metadata["safetensors"]
+                if "parameters" in safetensors and safetensors["parameters"]:
+                    # Use the first param type directly
+                    dtype = list(safetensors["parameters"].keys())[0]
+                    match = re.search(r'(\d+)', dtype)
+                    if match:
+                        bits = int(match.group(1))
+                        bytes_per_param = bits / 8
+                        logger.debug(
+                            f"From safetensors '{dtype}': {bytes_per_param} bytes/param"
+                        )
+                        return bytes_per_param
+
+            # Existing config checks
             if "config" in metadata:
                 config = metadata["config"]
 
@@ -185,21 +201,44 @@ class SizeMetric(Metric):
     def _get_parameter_count(self, metadata: dict) -> Optional[int]:
         """Extract parameter count from HF metadata."""
         try:
-            # Check config first (most common)
+            # Check safetensors field
+            if "safetensors" in metadata:
+                safetensors = metadata["safetensors"]
+                # Prefer "total" field, fallback to first parameter type
+                if "total" in safetensors:
+                    param_count = safetensors["total"]
+                    if isinstance(param_count, (int, float)) and param_count > 0:
+                        logger.debug(f"Params: {param_count:,} at safetensors.total")
+                        return int(param_count)
+                elif "parameters" in safetensors and safetensors["parameters"]:
+                    # Get first value in parameters dict
+                    param_count = list(safetensors["parameters"].values())[0]
+                    if isinstance(param_count, (int, float)) and param_count > 0:
+                        logger.debug(f"Params: {param_count:,} safetensors.parameters")
+                        return int(param_count)
+
+            # Check config
             if "config" in metadata:
                 config = metadata["config"]
-                for field in ["num_parameters", "n_parameters", "total_params"]:
+                for field in [
+                    "num_parameters", "n_parameters", "total_params",
+                    "parameters", "total_parameters", "model_parameters",
+                    "parameter_count", "params", "n_params"
+                ]:
                     if field in config and isinstance(config[field], (int, float)):
-                        param_count : Optional[int] = int(config[field])
+                        param_count: Optional[int] = int(config[field])
                         if param_count and param_count > 0:
                             logger.debug(
-                                f"Found parameter count: {param_count:,} \
-                                    at config.{field}"
+                                f"Param count: {param_count:,} at config.{field}"
                             )
                             return param_count
 
             # Check direct metadata
-            for field in ["num_parameters", "parameters", "total_parameters"]:
+            for field in [
+                "num_parameters", "parameters", "total_parameters",
+                "total_params", "model_parameters", "parameter_count",
+                "params", "n_params"
+            ]:
                 if field in metadata and isinstance(metadata[field], (int, float)):
                     param_count = int(metadata[field])
                     if param_count > 0:
@@ -209,7 +248,6 @@ class SizeMetric(Metric):
                         return param_count
 
             # Special case: extract from model name patterns
-            # (e.g., "llama-7b", "gpt-3.5b")
             if "config" in metadata and "name_or_path" in metadata["config"]:
                 name = metadata["config"]["name_or_path"]
                 param_count = self._extract_params_from_name(name)
