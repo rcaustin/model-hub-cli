@@ -24,14 +24,13 @@ Responsibilities
 - Extract model descriptions from Hugging Face and GitHub metadata
 - Detect common metrics and benchmarks using regex
 - Score each claim based on specificity and context
-- Return average score across all claims
+- Return average score across claims (top-k average to avoid dilution)
 
 Limitations
 -----------
 - Does not fetch full README from GitHub (only uses metadata)
 - May miss unconventional phrasing or claims outside standard fields
 """
-
 
 import re
 from typing import Any, Dict, List
@@ -47,45 +46,41 @@ class PerformanceClaimsMetric(Metric):
     Evaluates the quality and verifiability of performance claims made by a model.
 
     Looks for performance metrics in:
-    1. HuggingFace model cards and descriptions
-    2. GitHub repository README and documentation
+    1. HuggingFace model cards and descriptions (including structured model-index)
+    2. GitHub repository description (metadata only)
     3. Model metadata and tags
 
     Returns a score from 0.0 (no claims or misleading)
     to 1.0 (clear, quantified claims).
     """
 
-    # Common performance metric patterns
+    # Common performance metric patterns (tightened to avoid generic/ambiguous matches)
     PERFORMANCE_PATTERNS = [
-        r'accuracy[:\s]*(\d+\.?\d*)\s*%?',
-        r'f1[:\s]*(\d+\.?\d*)\s*%?',
-        r'precision[:\s]*(\d+\.?\d*)\s*%?',
-        r'recall[:\s]*(\d+\.?\d*)\s*%?',
-        r'auc[:\s]*(\d+\.?\d*)\s*%?',
-        r'bleu[:\s]*(\d+\.?\d*)\s*%?',
-        r'rouge[:\s]*(\d+\.?\d*)\s*%?',
-        r'perplexity[:\s]*(\d+\.?\d*)',
-        r'loss[:\s]*(\d+\.?\d*)',
-        r'error[:\s]*(\d+\.?\d*)\s*%?',
-        r'score[:\s]*(\d+\.?\d*)\s*%?',
-        r'(\d+\.?\d*)\s*%?\s*(accuracy|f1|precision|recall|auc|bleu|rouge)',
-        # Add more flexible patterns
-        r'bleu\s+score\s+of\s+(\d+\.?\d*)',
-        r'rouge-l[:\s]*(\d+\.?\d*)',
+        r"\baccuracy[:\s]*(\d+\.?\d*)\s*%?\b",
+        r"\bf1(?:-score)?[:\s]*(\d+\.?\d*)\s*%?\b",
+        r"\bprecision[:\s]*(\d+\.?\d*)\s*%?\b",
+        r"\brecall[:\s]*(\d+\.?\d*)\s*%?\b",
+        r"\bauc[:\s]*(\d+\.?\d*)\s*%?\b",
+        r"\bbleu(?:\s*score)?[:\s]*(\d+\.?\d*)\b",
+        r"\brouge(?:-l)?[:\s]*(\d+\.?\d*)\b",
+        r"\bperplexity[:\s]*(\d+\.?\d*)\b",
+        r"\bloss[:\s]*(\d+\.?\d*)\b",
+        # Number then metric
+        r"(\d+\.?\d*)\s*%?\s*(accuracy|f1(?:-score)?|precision|recall|auc|bleu|rouge)\b",
     ]
 
     # Benchmark dataset patterns
     BENCHMARK_PATTERNS = [
-        r'imagenet',
-        r'glue',
-        r'squad',
-        r'wmt',
-        r'coco',
-        r'vqa',
-        r'ms\s*marco',
-        r'common\s*crawl',
-        r'wikipedia',
-        r'bookcorpus',
+        r"imagenet",
+        r"glue",
+        r"squad",
+        r"wmt",
+        r"coco",
+        r"vqa",
+        r"ms\s*marco",
+        r"common\s*crawl",
+        r"wikipedia",
+        r"bookcorpus",
     ]
 
     def evaluate(self, model: ModelData) -> float:
@@ -100,8 +95,7 @@ class PerformanceClaimsMetric(Metric):
         """
         logger.info("Evaluating PerformanceClaimsMetric...")
 
-        claims_found = []
-        total_score = 0.0
+        claims_found: List[Dict[str, Any]] = []
 
         # Check HuggingFace metadata for performance claims
         if model.modelLink and "huggingface.co" in model.modelLink:
@@ -113,120 +107,162 @@ class PerformanceClaimsMetric(Metric):
             gh_claims = self._extract_github_claims(model)
             claims_found.extend(gh_claims)
 
-        # Calculate score based on claims quality
         if not claims_found:
             logger.info("PerformanceClaimsMetric: No performance claims found -> 0.0")
             return 0.0
 
-        # Score each claim and calculate average
-        for claim in claims_found:
-            claim_score = self._score_claim(claim)
-            total_score += claim_score
+        # Score by top-k average to avoid dilution from many benchmark-only mentions
+        scores = [self._score_claim(c) for c in claims_found]
+        scores.sort(reverse=True)
+        topk = scores[:3]  # consider the three strongest signals
+        final_score = sum(topk) / len(topk)
 
-        final_score = total_score / len(claims_found)
+        final_score = max(0.0, min(final_score, 1.0))
         logger.info(
-            "PerformanceClaimsMetric: {} claims found, average score {} -> {}",
-            len(claims_found), total_score / len(claims_found), final_score
+            "PerformanceClaimsMetric: {} claims found, top-k avg -> {}",
+            len(claims_found), final_score
         )
-
-        return min(final_score, 1.0)  # Cap at 1.0
+        return final_score
 
     def _extract_hf_claims(self, model: ModelData) -> List[Dict[str, Any]]:
-        """Extract performance claims from HuggingFace metadata."""
+        """Extract performance claims from HuggingFace metadata, including model-index."""
         claims: List[Dict[str, Any]] = []
-
         try:
             hf_meta = model.hf_metadata
             if not hf_meta:
                 return claims
 
-            # Check model card data
-            card_data = hf_meta.get("cardData", {})
+            # Accept both snake_case and camelCase metadata keys
+            card_data = hf_meta.get("card_data") or hf_meta.get("cardData") or {}
             if isinstance(card_data, dict):
-                # Check various text fields for performance claims
                 text_fields = [
                     card_data.get("model_description", ""),
                     card_data.get("model_summary", ""),
                     card_data.get("limitations", ""),
                     card_data.get("training_data", ""),
+                    card_data.get("intended_uses", ""),
+                    card_data.get("results", ""),
                 ]
-
                 for field_text in text_fields:
                     if field_text:
                         field_claims = self._find_performance_claims(field_text)
                         claims.extend(field_claims)
 
-            # Check tags for performance indicators
+            # Parse structured results in model-index / model_index if available
+            model_index = hf_meta.get("model-index") or hf_meta.get("model_index") or []
+            if isinstance(model_index, list):
+                for entry in model_index:
+                    results = (entry.get("results") or [])
+                    for res in results:
+                        dataset = (res.get("dataset") or {})
+                        dataset_name = (
+                            dataset.get("name")
+                            or dataset.get("type")
+                            or dataset.get("id")
+                            or ""
+                        )
+                        metrics = (res.get("metrics") or [])
+                        for m in metrics:
+                            mname = (m.get("name") or m.get("type") or "").lower()
+                            mval = m.get("value")
+                            if isinstance(mval, (int, float)) and mname:
+                                claims.append({
+                                    "text": f"{mname}: {mval} on {dataset_name}",
+                                    "metric": str(mval),
+                                    "source": "hf_model_index",
+                                    "context": dataset_name.lower(),
+                                })
+
+            # Tags with obvious metric names
             tags = hf_meta.get("tags", [])
             if isinstance(tags, list):
                 for tag in tags:
-                    if isinstance(tag, str) and any(pattern in tag.lower()
-                       for pattern in ['accuracy', 'f1', 'bleu', 'rouge']):
+                    if isinstance(tag, str) and any(t in tag.lower()
+                        for t in ["accuracy", "f1", "bleu", "rouge"]):
                         claims.append({
-                            'text': tag,
-                            'source': 'hf_tags',
-                            'context': 'model tags'
+                            "text": tag,
+                            "source": "hf_tags",
+                            "context": "model tags",
                         })
 
         except Exception as e:
             logger.debug("Error extracting HuggingFace claims: {}", e)
-
         return claims
 
     def _extract_github_claims(self, model: ModelData) -> List[Dict[str, Any]]:
-        """Extract performance claims from GitHub metadata."""
+        """Extract performance claims from GitHub metadata (description only)."""
         claims: List[Dict[str, Any]] = []
-
         try:
             gh_meta = model.github_metadata
             if not gh_meta:
                 return claims
-
-            # Note: GitHub API doesn't provide README content by default
-            # In a real implementation, you might want to fetch the README separately
-            # For now, we'll focus on repository metadata
-
-            # Check repository description
             description = gh_meta.get("description", "")
             if description:
-                desc_claims = self._find_performance_claims(description)
-                claims.extend(desc_claims)
-
+                claims.extend(self._find_performance_claims(description))
         except Exception as e:
             logger.debug("Error extracting GitHub claims: {}", e)
-
         return claims
 
     def _find_performance_claims(self, text: str) -> List[Dict[str, Any]]:
-        """Find performance claims in text using regex patterns."""
+        """Find performance claims in text using tightened regex patterns and noise filters."""
         claims: List[Dict[str, Any]] = []
-
         if not text or not isinstance(text, str):
             return claims
 
         text_lower = text.lower()
 
-        # Look for performance metrics
+        def _window(start: int, end: int, pad: int = 30) -> str:
+            s = max(0, start - pad)
+            e = min(len(text_lower), end + pad)
+            return text_lower[s:e]
+
+        # Metric matches
         for pattern in self.PERFORMANCE_PATTERNS:
-            matches = re.finditer(pattern, text_lower, re.IGNORECASE)
-            for match in matches:
+            for match in re.finditer(pattern, text_lower, re.IGNORECASE):
+                num = None
+                if match.lastindex:
+                    num = match.group(1)
+                context = _window(match.start(), match.end())
+                if num and self._looks_like_noise(num, context):
+                    continue
                 claims.append({
-                    'text': match.group(0),
-                    'metric': match.group(1) if match.groups() else None,
-                    'source': 'text_analysis',
-                    'context': 'performance metric'
+                    "text": match.group(0),
+                    "metric": num,
+                    "source": "text_analysis",
+                    "context": "performance metric",
                 })
 
-        # Look for benchmark mentions
+        # Dedup benchmark mentions (each dataset contributes at most once)
+        seen_benchmarks = set()
         for pattern in self.BENCHMARK_PATTERNS:
-            if re.search(pattern, text_lower):
-                claims.append({
-                    'text': pattern,
-                    'source': 'text_analysis',
-                    'context': 'benchmark dataset'
-                })
-
+            m = re.search(pattern, text_lower)
+            if m:
+                key = m.group(0)
+                if key not in seen_benchmarks:
+                    seen_benchmarks.add(key)
+                    claims.append({
+                        "text": key,
+                        "source": "text_analysis",
+                        "context": "benchmark dataset",
+                    })
         return claims
+
+    def _looks_like_noise(self, num_str: str, context: str) -> bool:
+        """Heuristics to skip numbers that are likely not evaluation metrics."""
+        try:
+            val = float(num_str)
+        except Exception:
+            return True
+        # Years near the match
+        if re.search(r"\b(19|20)\d{2}\b", context):
+            return True
+        # Versions like v1.2.3 or 1.0.0 or words 'version'
+        if re.search(r"\b(v(?:er)?\.?\s*)?\d+\.\d+(?:\.\d+)?\b", context):
+            return True
+        # Extremely large numbers (nonsense for typical metric values)
+        if val > 1000:
+            return True
+        return False
 
     def _score_claim(self, claim: Dict[str, Any]) -> float:
         """
@@ -240,21 +276,20 @@ class PerformanceClaimsMetric(Metric):
         - 0.2: Benchmark mention without specific metrics
         - 0.0: Unclear or misleading claims
         """
-        text = claim.get('text', '').lower()
+        text = (claim.get("text") or "").lower()
 
-        # Check if it's a quantified metric
-        has_number = bool(re.search(r'\d+\.?\d*', text))
+        # Quantified?
+        has_number = bool(re.search(r"\d+\.?\d*", text))
 
-        # Check if it mentions a benchmark
-        has_benchmark = any(pattern in text for pattern in self.BENCHMARK_PATTERNS)
+        # Mentions a benchmark?
+        has_benchmark = any(pat in text for pat in self.BENCHMARK_PATTERNS)
 
-        # Check if it's a specific performance metric
+        # Specific metric?
         is_performance_metric = any(metric in text for metric in [
-            'accuracy', 'f1', 'precision', 'recall',
-            'auc', 'bleu', 'rouge', 'perplexity'
+            "accuracy", "f1", "precision", "recall",
+            "auc", "bleu", "rouge", "perplexity", "loss"
         ])
 
-        # Score based on criteria
         if has_number and is_performance_metric and has_benchmark:
             return 1.0
         elif has_number and is_performance_metric:
