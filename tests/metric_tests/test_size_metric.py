@@ -72,8 +72,11 @@ class TestSizeMetric:
         mock_model.hf_metadata = {"config": {"num_parameters": 100_000_000}}
         scores = metric.evaluate(mock_model)
 
-        # All devices should get high scores
-        assert all(score > 0.8 for score in scores.values())
+        # Raspberry Pi and Jetson Nano may be lower, desktop and aws should be high
+        assert scores["raspberry_pi"] > 0.6
+        assert scores["jetson_nano"] > 0.8
+        assert scores["desktop_pc"] > 0.95
+        assert scores["aws_server"] > 0.95
 
     @patch.object(SizeMetric, "_get_model_size")
     def test_evaluate_error_handling(
@@ -229,8 +232,8 @@ class TestSizeMetric:
     def test_device_specs_values(self, metric: SizeMetric) -> None:
         """Test that DEVICE_SPECS contains expected values and ordering."""
         expected = {
-            "raspberry_pi": 2.0,
-            "jetson_nano": 3.0,
+            "raspberry_pi": 0.5,
+            "jetson_nano": 1.0,
             "desktop_pc": 20.0,
             "aws_server": 60.0,
         }
