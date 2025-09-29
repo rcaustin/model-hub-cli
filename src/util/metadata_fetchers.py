@@ -50,11 +50,13 @@ from typing import Any, Dict, Optional
 from urllib.parse import urlparse
 
 import requests
+from huggingface_hub import hf_hub_download
 from loguru import logger
 
 
 class MetadataFetcher:
     def fetch_metadata(self, url: Optional[str]) -> Dict[str, Any]:
+        """Fetch metadata from the given URL."""
         raise NotImplementedError("Must be implemented by subclasses.")
 
 
@@ -64,6 +66,7 @@ class HuggingFaceFetcher(MetadataFetcher):
         self.BASE_API_URL = "https://huggingface.co/api/models"
 
     def fetch_metadata(self, url: Optional[str]) -> Dict[str, Any]:
+        """Fetch Hugging Face model metadata."""
         metadata = {}
 
         # Verify URL Exists
@@ -88,8 +91,9 @@ class HuggingFaceFetcher(MetadataFetcher):
 
         organization, model_id = parts[0], parts[1]
         api_url = f"{self.BASE_API_URL}/{organization}/{model_id}"
+        repo_id = f"{organization}/{model_id}"
 
-        # Fetch Metadata from Hugging Face API
+        # Fetch General Model Metadata from Hugging Face API
         try:
             logger.debug(f"Fetching HF metadata from: {api_url}")
             resp = self.session.get(api_url, timeout=5)
@@ -105,6 +109,26 @@ class HuggingFaceFetcher(MetadataFetcher):
         except Exception as e:
             logger.exception(f"Exception fetching HF metadata: {e}")
 
+        # Fetch README.md
+        try:
+            readme_path = hf_hub_download(repo_id=repo_id, filename="README.md")
+            with open(readme_path, "r", encoding="utf-8") as f:
+                metadata["readme"] = f.read()
+                logger.debug("Successfully fetched README.md from Hugging Face")
+        except Exception as e:
+            logger.warning(f"Failed to fetch README.md via huggingface_hub: {e}")
+
+        # Fetch model_index.json
+        try:
+            model_index_path = hf_hub_download(
+                repo_id=repo_id, filename="model_index.json"
+            )
+            with open(model_index_path, "r", encoding="utf-8") as f:
+                metadata["model_index"] = f.read()
+                logger.debug("Successfully fetched model_index.json from Hugging Face")
+        except Exception as e:
+            logger.warning(f"Failed to fetch model_index.json via huggingface_hub: {e}")
+
         return metadata
 
 
@@ -119,6 +143,7 @@ class GitHubFetcher(MetadataFetcher):
         self.BASE_API_URL = "https://api.github.com/repos"
 
     def fetch_metadata(self, url: Optional[str]) -> Dict[str, Any]:
+        """Fetch GitHub repository metadata."""
         metadata = {}
 
         # Verify URL Exists
@@ -188,12 +213,11 @@ class GitHubFetcher(MetadataFetcher):
             # Fetch recent commit activity
             commits_url = f"{self.BASE_API_URL}/{owner}/{repo}/commits"
             logger.debug(f"Fetching GitHub commits from: {commits_url}")
-            params = {"since": "30 days ago", "per_page": 100}
-            resp = self.session.get(commits_url, params=params, headers=headers)
-            if resp.ok:
-                commits = resp.json()
-                avg_daily = len(commits) / 30
-                metadata["avg_daily_commits_30d"] = avg_daily
+            params = {"per_page": 100}
+            commits_resp = self.session.get(commits_url, params=params, headers=headers)
+            if commits_resp.ok:
+                commits = commits_resp.json()
+                metadata["commits_count"] = len(commits)
             else:
                 logger.warning(
                     f"Failed to fetch commits (HTTP {resp.status_code}) for {url}"
@@ -206,6 +230,7 @@ class GitHubFetcher(MetadataFetcher):
 
 
 class DatasetFetcher(MetadataFetcher):
+    """Fetches dataset metadata from Hugging Face datasets API."""
     def __init__(self, session: Optional[requests.Session] = None) -> None:
         self.session = session or requests.Session()
         self.BASE_API_URL = "https://huggingface.co/api/datasets"
