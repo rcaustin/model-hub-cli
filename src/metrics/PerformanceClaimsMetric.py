@@ -2,95 +2,55 @@
 PerformanceClaimsMetric.py
 ==========================
 
-Evaluates whether the model makes clear, verifiable performance claims.
+Evaluates whether the model makes clear, verifiable performance claims using LLMClient.
 
 Overview
 --------
-Searches Hugging Face and GitHub metadata for references to accuracy, F1, BLEU, etc.
-It also detects benchmark mentions like SQuAD or ImageNet. Uses regex to find
-quantified metrics in text.
+Uses LLMClient to analyze the Hugging Face model page (and optionally GitHub README)
+for claims, benchmarks, and comparisons. The LLM is prompted to find claims comparing
+the model to others, benchmarks showing favorable results, and multiple supporting
+claims/benchmarks to determine a score in [0,1].
 
 Scoring (0.0 – 1.0)
 -------------------
-+1.0: Specific metric with benchmark (e.g. "95% accuracy on ImageNet")
-+0.8: Specific metric only (e.g. "accuracy: 95%")
-+0.6: Vague metric + benchmark (e.g. "strong accuracy on SQuAD")
-+0.4: Vague metric only (e.g. "high F1")
-+0.2: Benchmark mention only (e.g. "evaluated on GLUE")
++1.0: Multiple specific claims with strong benchmarks and comparisons
++0.8: Specific claims with benchmarks or comparisons
++0.6: Vague claims with some benchmarks
++0.4: Vague claims only
++0.2: Benchmark mention only
 +0.0: No relevant claims found
 
 Responsibilities
 ----------------
-- Extract model descriptions from Hugging Face and GitHub metadata
-- Detect common metrics and benchmarks using regex
-- Score each claim based on specificity and context
-- Return average score across all claims
+- Use LLMClient to extract claims and benchmarks from model documentation
+- Score based on richness, specificity, and credibility of claims/benchmarks
+- Return a score in [0,1]
 
 Limitations
 -----------
-- Does not fetch full README from GitHub (only uses metadata)
-- May miss unconventional phrasing or claims outside standard fields
+- Relies on LLMClient's ability to parse and summarize documentation
+- May miss claims if documentation is sparse or poorly formatted
 """
-
-
-import re
-from typing import Any, Dict, List
 
 from loguru import logger
 
 from src.ModelData import ModelData
 from src.Metric import Metric
+from src.util.LLMClient import LLMClient
 
 
 class PerformanceClaimsMetric(Metric):
     """
-    Evaluates the quality and verifiability of performance claims made by a model.
-
-    Looks for performance metrics in:
-    1. HuggingFace model cards and descriptions
-    2. GitHub repository README and documentation
-    3. Model metadata and tags
-
-    Returns a score from 0.0 (no claims or misleading)
-    to 1.0 (clear, quantified claims).
+    Evaluates the quality and verifiability of performance claims made by a model
+    using LLMClient to analyze documentation and benchmarks.
     """
 
-    # Common performance metric patterns
-    PERFORMANCE_PATTERNS = [
-        r'accuracy[:\s]*(\d+\.?\d*)\s*%?',
-        r'f1[:\s]*(\d+\.?\d*)\s*%?',
-        r'precision[:\s]*(\d+\.?\d*)\s*%?',
-        r'recall[:\s]*(\d+\.?\d*)\s*%?',
-        r'auc[:\s]*(\d+\.?\d*)\s*%?',
-        r'bleu[:\s]*(\d+\.?\d*)\s*%?',
-        r'rouge[:\s]*(\d+\.?\d*)\s*%?',
-        r'perplexity[:\s]*(\d+\.?\d*)',
-        r'loss[:\s]*(\d+\.?\d*)',
-        r'error[:\s]*(\d+\.?\d*)\s*%?',
-        r'score[:\s]*(\d+\.?\d*)\s*%?',
-        r'(\d+\.?\d*)\s*%?\s*(accuracy|f1|precision|recall|auc|bleu|rouge)',
-        # Add more flexible patterns
-        r'bleu\s+score\s+of\s+(\d+\.?\d*)',
-        r'rouge-l[:\s]*(\d+\.?\d*)',
-    ]
-
-    # Benchmark dataset patterns
-    BENCHMARK_PATTERNS = [
-        r'imagenet',
-        r'glue',
-        r'squad',
-        r'wmt',
-        r'coco',
-        r'vqa',
-        r'ms\s*marco',
-        r'common\s*crawl',
-        r'wikipedia',
-        r'bookcorpus',
-    ]
+    def __init__(self) -> None:
+        self.llm_client = LLMClient()
 
     def evaluate(self, model: ModelData) -> float:
         """
-        Evaluate the quality of performance claims made by the model.
+        Evaluate the quality of performance claims made by the model using LLMClient.
 
         Args:
             model: ModelData object containing URLs and metadata
@@ -98,172 +58,40 @@ class PerformanceClaimsMetric(Metric):
         Returns:
             float: Performance claims score from 0.0 to 1.0
         """
-        logger.info("Evaluating PerformanceClaimsMetric...")
+        logger.info("Evaluating PerformanceClaimsMetric with LLMClient...")
 
-        claims_found = []
-        total_score = 0.0
+        # Gather relevant metadata for the prompt
+        metadata = model._hf_metadata if hasattr(model, "_hf_metadata") else {}
 
-        # Check HuggingFace metadata for performance claims
-        if model.modelLink and "huggingface.co" in model.modelLink:
-            hf_claims = self._extract_hf_claims(model)
-            claims_found.extend(hf_claims)
-
-        # Check GitHub metadata for performance claims
-        if model.codeLink and "github.com" in model.codeLink:
-            gh_claims = self._extract_github_claims(model)
-            claims_found.extend(gh_claims)
-
-        # Calculate score based on claims quality
-        if not claims_found:
-            logger.info("PerformanceClaimsMetric: No performance claims found -> 0.0")
+        if metadata is None:
+            logger.warning("No metadata available for model.")
             return 0.0
+        card_data = {}
+        readme = ""
+        if metadata.get("cardData"):
+            card_data = metadata.get("cardData", {})
+        if metadata.get("readme"):
+            readme = metadata.get("readme", "")
 
-        # Score each claim and calculate average
-        for claim in claims_found:
-            claim_score = self._score_claim(claim)
-            total_score += claim_score
-
-        final_score = total_score / len(claims_found)
-        logger.info(
-            "PerformanceClaimsMetric: {} claims found, average score {} -> {}",
-            len(claims_found), total_score / len(claims_found), final_score
+        # Compose a prompt for the LLM using extracted metadata
+        prompt = (
+            "Given the following Hugging Face model metadata and documentation:\n\n"
+            f"Model Card Data: {card_data}\n\n"
+            f"README:\n{readme}\n\n"
+            "Identify any claims comparing this model to other models, "
+            "benchmarks showing favorable results, "
+            "and multiple supporting claims or benchmarks."
+            "Summarize the claims and benchmarks, "
+            "and provide a score from 0.0 to 1.0 on the first line, "
+            "where 1.0 means strong, specific, "
+            "and well-supported claims and benchmarks, "
+            "and 0.0 means no relevant claims or benchmarks are present.\n"
+            "Respond with only your score, fully numerical, with no other text."
         )
 
-        return min(final_score, 1.0)  # Cap at 1.0
+        # Query the LLM
+        response = self.llm_client.send_prompt(prompt)
+        score = self.llm_client.extract_score(response)
 
-    def _extract_hf_claims(self, model: ModelData) -> List[Dict[str, Any]]:
-        """Extract performance claims from HuggingFace metadata."""
-        claims: List[Dict[str, Any]] = []
-
-        try:
-            hf_meta = model.hf_metadata
-            if not hf_meta:
-                return claims
-
-            # Check model card data
-            card_data = hf_meta.get("cardData", {})
-            if isinstance(card_data, dict):
-                # Check various text fields for performance claims
-                text_fields = [
-                    card_data.get("model_description", ""),
-                    card_data.get("model_summary", ""),
-                    card_data.get("limitations", ""),
-                    card_data.get("training_data", ""),
-                ]
-
-                for field_text in text_fields:
-                    if field_text:
-                        field_claims = self._find_performance_claims(field_text)
-                        claims.extend(field_claims)
-
-            # Check tags for performance indicators
-            tags = hf_meta.get("tags", [])
-            if isinstance(tags, list):
-                for tag in tags:
-                    if isinstance(tag, str) and any(pattern in tag.lower()
-                       for pattern in ['accuracy', 'f1', 'bleu', 'rouge']):
-                        claims.append({
-                            'text': tag,
-                            'source': 'hf_tags',
-                            'context': 'model tags'
-                        })
-
-        except Exception as e:
-            logger.debug("Error extracting HuggingFace claims: {}", e)
-
-        return claims
-
-    def _extract_github_claims(self, model: ModelData) -> List[Dict[str, Any]]:
-        """Extract performance claims from GitHub metadata."""
-        claims: List[Dict[str, Any]] = []
-
-        try:
-            gh_meta = model.github_metadata
-            if not gh_meta:
-                return claims
-
-            # Note: GitHub API doesn't provide README content by default
-            # In a real implementation, you might want to fetch the README separately
-            # For now, we'll focus on repository metadata
-
-            # Check repository description
-            description = gh_meta.get("description", "")
-            if description:
-                desc_claims = self._find_performance_claims(description)
-                claims.extend(desc_claims)
-
-        except Exception as e:
-            logger.debug("Error extracting GitHub claims: {}", e)
-
-        return claims
-
-    def _find_performance_claims(self, text: str) -> List[Dict[str, Any]]:
-        """Find performance claims in text using regex patterns."""
-        claims: List[Dict[str, Any]] = []
-
-        if not text or not isinstance(text, str):
-            return claims
-
-        text_lower = text.lower()
-
-        # Look for performance metrics
-        for pattern in self.PERFORMANCE_PATTERNS:
-            matches = re.finditer(pattern, text_lower, re.IGNORECASE)
-            for match in matches:
-                claims.append({
-                    'text': match.group(0),
-                    'metric': match.group(1) if match.groups() else None,
-                    'source': 'text_analysis',
-                    'context': 'performance metric'
-                })
-
-        # Look for benchmark mentions
-        for pattern in self.BENCHMARK_PATTERNS:
-            if re.search(pattern, text_lower):
-                claims.append({
-                    'text': pattern,
-                    'source': 'text_analysis',
-                    'context': 'benchmark dataset'
-                })
-
-        return claims
-
-    def _score_claim(self, claim: Dict[str, Any]) -> float:
-        """
-        Score a performance claim based on its quality and verifiability.
-
-        Scoring criteria:
-        - 1.0: Quantified metric with benchmark context
-        - 0.8: Quantified metric without clear benchmark
-        - 0.6: Vague metric with benchmark context
-        - 0.4: Vague metric without benchmark
-        - 0.2: Benchmark mention without specific metrics
-        - 0.0: Unclear or misleading claims
-        """
-        text = claim.get('text', '').lower()
-
-        # Check if it's a quantified metric
-        has_number = bool(re.search(r'\d+\.?\d*', text))
-
-        # Check if it mentions a benchmark
-        has_benchmark = any(pattern in text for pattern in self.BENCHMARK_PATTERNS)
-
-        # Check if it's a specific performance metric
-        is_performance_metric = any(metric in text for metric in [
-            'accuracy', 'f1', 'precision', 'recall',
-            'auc', 'bleu', 'rouge', 'perplexity'
-        ])
-
-        # Score based on criteria
-        if has_number and is_performance_metric and has_benchmark:
-            return 1.0
-        elif has_number and is_performance_metric:
-            return 0.8
-        elif is_performance_metric and has_benchmark:
-            return 0.6
-        elif is_performance_metric:
-            return 0.4
-        elif has_benchmark:
-            return 0.2
-        else:
-            return 0.0
+        logger.info("PerformanceClaimsMetric: LLM-based score -> {}", score)
+        return min(score, 1.0)
