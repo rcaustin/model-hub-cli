@@ -8,7 +8,7 @@ Score Breakdown (Total: 1.0)
 ----------------------------
 - Code Popularity (stars, forks): up to 0.2
 - Test Suite Coverage (test files vs source files): up to 0.3
-- Commit Frequency (avg daily commits): up to 0.3
+- Total Commits (up to 300 commits): up to 0.3
 - Documentation presence (LICENSE, README, CONTRIBUTING): up to 0.2
 
 Requirements
@@ -41,9 +41,14 @@ from src.Metric import Metric
 class CodeQualityMetric(Metric):
     """
     Evaluates code quality using GitHub metadata and repository content analysis.
+    Score is based on:
+    - Popularity (stars, forks)
+    - Test Suite Coverage (test files vs source files)
+    - Total Commits (up to 100 commits)
+    - Documentation presence (LICENSE, README, CONTRIBUTING)
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.temp_dirs: List[str] = []
 
     def evaluate(self, model: ModelData) -> float:
@@ -82,6 +87,10 @@ class CodeQualityMetric(Metric):
                     total = (
                         popularity_score + commit_score + test_score + doc_score
                     )
+                    logger.info("Popularity Score: {:.3f}", popularity_score)
+                    logger.info("Total Commits Score: {:.3f}", commit_score)
+                    logger.info("Test Score: {:.3f}", test_score)
+                    logger.info("Documentation Score: {:.3f}", doc_score)
                     logger.info(
                         "CodeQualityMetric: Full analysis score → {:.3f}", total
                     )
@@ -102,15 +111,23 @@ class CodeQualityMetric(Metric):
         stars = gh_meta.get("stargazers_count", 0)
         forks = gh_meta.get("forks_count", 0)
 
-        star_score = min(stars / 50 * 0.01, 0.1)
-        fork_score = min(forks / 10 * 0.01, 0.1)
+        star_score = min(stars // 50 * 0.01, 0.1)
+        fork_score = min(forks // 10 * 0.01, 0.1)
 
         return star_score + fork_score
 
     def _calculate_commit_score(self, gh_meta: Dict[str, Any]) -> float:
-        """Calculate commit activity score from average daily commits."""
-        avg_commits = gh_meta.get("avg_daily_commits_30d", 0)
-        return min(avg_commits * 0.05, 0.3)
+        """Calculate commit score based on total number of commits.
+
+        (max 0.3 for 300+ commits).
+        """
+        total_commits = gh_meta.get("commits_count", 0)
+
+        # Linear scale: 0.001 points per commit, maxing out at 0.3 for 300 commits
+        score = min(total_commits * 0.001, 0.3)
+
+        logger.debug("Total commits: {} → commit score: {:.3f}", total_commits, score)
+        return score
 
     def _clone_repository(self, clone_url: str, temp_dir: str) -> bool:
         """Clone a repository into the given directory. Returns True if successful."""
@@ -145,11 +162,27 @@ class CodeQualityMetric(Metric):
         return min(ratio * 0.3, 0.3)
 
     def _count_test_files(self, repo_path: str) -> int:
-        """Count Python test files based on common directory patterns."""
-        test_patterns = ["tests/**/*.py", "test/**/*.py"]
-        count = sum(
-            len(list(Path(repo_path).glob(pattern))) for pattern in test_patterns
-        )
+        """Count test files across all programming languages (no duplicates)."""
+        test_patterns = [
+            # Directory patterns
+            "tests/**/*", "test/**/*", "**/tests/**/*", "**/test/**/*",
+            "spec/**/*", "**/spec/**/*", "__tests__/**/*", "**/__tests__/**/*",
+            "src/test/**/*", "**/src/test/**/*",
+
+            # File patterns (these cover all the specific ones)
+            "**/test_*.*", "**/*_test.*", "**/*Test.*", "**/*Tests.*",
+            "**/*.test.*", "**/*.spec.*", "**/Test*.*",
+        ]
+
+        # Use a set to avoid counting the same file multiple times
+        unique_files = set()
+        for pattern in test_patterns:
+            for file_path in Path(repo_path).glob(pattern):
+                if file_path.is_file():  # Only count actual files
+                    unique_files.add(str(file_path))
+
+        count = len(unique_files)
+        logger.debug("Test files found: {}", count)
         return count
 
     def _count_source_files(self, repo_path: str) -> int:
@@ -172,6 +205,7 @@ class CodeQualityMetric(Metric):
             for file in files:
                 if Path(file).suffix.lower() in source_extensions:
                     count += 1
+        logger.debug("Source files found: {}", count)
         return count
 
     def _evaluate_documentation(self, repo_path: str) -> float:
