@@ -1,4 +1,5 @@
-from typing import Optional
+import re
+from typing import Dict, Optional
 
 from loguru import logger
 
@@ -23,6 +24,10 @@ class RampUpMetric(Metric):
                 "returning 0.0 score."
             )
             return 0.0
+
+        # Extract Relevant Sections
+        if readme_text:
+            readme_text = self._extract_relevant_sections(readme_text or "")
 
         # Construct the prompt for the LLM
         prompt: str = (
@@ -52,3 +57,48 @@ class RampUpMetric(Metric):
 
         logger.debug(f"Ramp Up Time Metric score: {score}")
         return score
+
+    def _extract_relevant_sections(self, readme: str, max_chars: int = 8000) -> str:
+        """
+        Extract key sections from a long README to prepare a concise,
+        high-signal LLM prompt.
+        """
+        if not readme:
+            return ""
+
+        sections_to_extract = {
+            "Installation": ["installation", "setup", "getting started"],
+            "Usage": ["usage", "how to use", "examples"],
+            "Dataset": ["dataset", "data", "inputs"],
+            "Training": ["training", "train", "fine-tune", "finetune"]
+        }
+
+        # Match H2/H3 markdown headings and their content
+        pattern = re.compile(r"(#{2,3})\s+(.*)", re.IGNORECASE)
+        matches = list(pattern.finditer(readme))
+
+        # Extract sections based on headings
+        extracted_sections: Dict[str, str] = {}
+        for i, match in enumerate(matches):
+            heading = match.group(2).strip().lower()
+            content_start = match.end()
+            content_end = (
+                matches[i + 1].start() if i + 1 < len(matches) else len(readme)
+            )
+            content = readme[content_start:content_end].strip()
+
+            # Check if this heading matches any target sections
+            for section_name, keywords in sections_to_extract.items():
+                if any(keyword in heading for keyword in keywords):
+                    if section_name not in extracted_sections:
+                        extracted_sections[section_name] = (
+                            f"## {section_name}\n{content}"
+                        )
+                    break
+
+        # Fallback: return first max_chars characters if no section found
+        if not extracted_sections:
+            return readme[:max_chars] + "\n..."
+
+        combined = "\n\n".join(extracted_sections.values())
+        return combined[:max_chars] + ("\n..." if len(combined) > max_chars else "")
