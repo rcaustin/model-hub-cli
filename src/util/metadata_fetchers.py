@@ -216,7 +216,7 @@ class GitHubFetcher(MetadataFetcher):
             params = {"per_page": 100}
             commits_resp = self.session.get(commits_url, params=params, headers=headers)
             if commits_resp.ok:
-                commits = resp.json()
+                commits = commits_resp.json()
                 metadata["commits_count"] = len(commits)
             else:
                 logger.warning(
