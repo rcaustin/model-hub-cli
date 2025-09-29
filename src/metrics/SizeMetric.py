@@ -48,8 +48,8 @@ class SizeMetric(Metric):
     Score range for each device: 0.0 - 1.0
 
     Device Memory Calculations:
-    - Raspberry Pi 5: 16GB RAM * 0.125 penalty = 2GB usable (CPU-only, inefficient)
-    - Jetson Nano: 4GB RAM * 0.75 penalty = 3GB usable (GPU available but limited)
+    - Raspberry Pi 5: 0.5GB usable (CPU-only, inefficient)
+    - Jetson Nano: 1GB usable (GPU available but limited)
     - Desktop PC (RTX 4090): 24GB VRAM - 4GB overhead = 20GB usable (efficient GPU)
     - AWS Server (g4dn.12xlarge): 64GB VRAM - 4GB overhead = 60GB usable (multi-GPU)
 
@@ -71,8 +71,8 @@ class SizeMetric(Metric):
 
     # Device specifications with usable memory (after overhead and penalties)
     DEVICE_SPECS = {
-        "raspberry_pi": 2.0,  # 16GB * 0.125 penalty = 2GB usable
-        "jetson_nano": 3.0,   # 4GB * 0.75 penalty = 3GB usable
+        "raspberry_pi": 0.5,  # 0.5GB usable
+        "jetson_nano": 1.0,   # 1GB usable
         "desktop_pc": 20.0,   # 24GB - 4GB overhead = 20GB usable
         "aws_server": 60.0    # 64GB - 4GB overhead = 60GB usable
     }
