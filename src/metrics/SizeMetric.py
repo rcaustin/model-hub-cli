@@ -62,9 +62,11 @@ class SizeMetric(Metric):
       computational inefficiency
 
     Model Size Calculation:
-    - Model Size = Number of Parameters * Average Bytes per Parameter
+    - Model Size = Number of Parameters * Average Bytes per Parameter, if available
+    - else, Model Size = usedStorage (if available) in bytes / (1024^3) to convert to GB
     - Uses Hugging Face API to get parameter count and tensor types.
-    - Assumes even split if multiple tensor types are present.
+    - Assumes the first tensor type applies to all parameters.
+    - Defaults to float16 (2 bytes) if tensor type is unavailable.
     """
 
     # Device specifications with usable memory (after overhead and penalties)
