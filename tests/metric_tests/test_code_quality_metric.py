@@ -25,7 +25,7 @@ class TestCodeQualityMetric(BaseMetricTest):
         model._github_metadata = {
             "stargazers_count": 150,
             "forks_count": 30,
-            "avg_daily_commits_30d": 2.0,
+            "commits_count": 100,
         }
         return model
 
@@ -35,7 +35,7 @@ class TestCodeQualityMetric(BaseMetricTest):
         model._github_metadata = {
             "stargazers_count": 100,
             "forks_count": 20,
-            "avg_daily_commits_30d": 1.0,
+            "commits_count": 100,
             "clone_url": "https://github.com/test/repo.git",
         }
         return model
@@ -122,20 +122,20 @@ class TestCodeQualityMetric(BaseMetricTest):
         # Low stars and forks
         gh_meta = {"stargazers_count": 25, "forks_count": 5}
         score = metric._calculate_popularity_score(gh_meta)
-        assert score == 0.01
+        assert score == 0.0
 
     def test_calculate_commit_score(self, metric: CodeQualityMetric) -> None:
         logger.info("Testing commit score calculation...")
 
         # High activity
-        gh_meta = {"avg_daily_commits_30d": 10.0}
+        gh_meta = {"commits_count": 300.0}
         score = metric._calculate_commit_score(gh_meta)
         assert score == 0.3
 
         # Low activity
-        gh_meta = {"avg_daily_commits_30d": 2.0}
+        gh_meta = {"commits_count": 10.0}
         score = metric._calculate_commit_score(gh_meta)
-        assert score == 0.1
+        assert score == 0.010
 
     @patch("src.metrics.CodeQualityMetric.Repo.clone_from")
     def test_full_evaluation_with_clone(
@@ -152,7 +152,7 @@ class TestCodeQualityMetric(BaseMetricTest):
 
             score = metric.evaluate(model_with_clone_url)
 
-            expected_score = 0.02 + 0.02 + 0.05 + 0.2 + 0.15
+            expected_score = 0.02 + 0.02 + 0.1 + 0.2 + 0.15
             assert score == pytest.approx(expected_score, abs=0.01)
 
     def test_evaluate_testing_quality(self, metric: CodeQualityMetric) -> None:
@@ -232,7 +232,7 @@ class TestCodeQualityMetric(BaseMetricTest):
 
         with patch.object(metric, "_clone_repository", return_value=False):
             score = metric.evaluate(model_with_clone_url)
-            expected_score = 0.02 + 0.02 + 0.05
+            expected_score = 0.02 + 0.02 + 0.1
             assert score == pytest.approx(expected_score, abs=0.01)
 
     def test_score_capping_at_one(self, metric: CodeQualityMetric) -> None:

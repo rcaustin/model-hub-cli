@@ -8,7 +8,7 @@ Score Breakdown (Total: 1.0)
 ----------------------------
 - Code Popularity (stars, forks): up to 0.2
 - Test Suite Coverage (test files vs source files): up to 0.3
-- Total Commits (up to 100 commits): up to 0.3
+- Total Commits (up to 300 commits): up to 0.3
 - Documentation presence (LICENSE, README, CONTRIBUTING): up to 0.2
 
 Requirements
@@ -48,7 +48,7 @@ class CodeQualityMetric(Metric):
     - Documentation presence (LICENSE, README, CONTRIBUTING)
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.temp_dirs: List[str] = []
 
     def evaluate(self, model: ModelData) -> float:
@@ -117,11 +117,14 @@ class CodeQualityMetric(Metric):
         return star_score + fork_score
 
     def _calculate_commit_score(self, gh_meta: Dict[str, Any]) -> float:
-        """Calculate commit score based on total number of commits (max 0.3 for 100+ commits)."""
+        """Calculate commit score based on total number of commits.
+
+        (max 0.3 for 300+ commits).
+        """
         total_commits = gh_meta.get("commits_count", 0)
 
-        # Linear scale: 0.003 points per commit, maxing out at 0.3 for 100 commits
-        score = min(total_commits * 0.003, 0.3)
+        # Linear scale: 0.001 points per commit, maxing out at 0.3 for 300 commits
+        score = min(total_commits * 0.001, 0.3)
 
         logger.debug("Total commits: {} → commit score: {:.3f}", total_commits, score)
         return score
@@ -159,26 +162,27 @@ class CodeQualityMetric(Metric):
         return min(ratio * 0.3, 0.3)
 
     def _count_test_files(self, repo_path: str) -> int:
-        """Count Python test files based on common directory patterns."""
+        """Count test files across all programming languages (no duplicates)."""
         test_patterns = [
             # Directory patterns
             "tests/**/*", "test/**/*", "**/tests/**/*", "**/test/**/*",
             "spec/**/*", "**/spec/**/*", "__tests__/**/*", "**/__tests__/**/*",
             "src/test/**/*", "**/src/test/**/*",
 
-            # File patterns by language
+            # File patterns (these cover all the specific ones)
             "**/test_*.*", "**/*_test.*", "**/*Test.*", "**/*Tests.*",
             "**/*.test.*", "**/*.spec.*", "**/Test*.*",
-
-            # Specific extensions
-            "**/*_test.py", "**/test_*.py", "**/*.test.js", "**/*.spec.js",
-            "**/*Test.java", "**/*_test.go", "**/*.Tests.cs", "**/*_test.cpp",
-            "**/*_spec.rb", "**/*Test.php", "**/*_test.rs", "**/*Tests.swift",
         ]
-        count = sum(
-            len(list(Path(repo_path).glob(pattern))) for pattern in test_patterns
-        )
-        print("Test files found:", count)
+
+        # Use a set to avoid counting the same file multiple times
+        unique_files = set()
+        for pattern in test_patterns:
+            for file_path in Path(repo_path).glob(pattern):
+                if file_path.is_file():  # Only count actual files
+                    unique_files.add(str(file_path))
+
+        count = len(unique_files)
+        logger.debug("Test files found: {}", count)
         return count
 
     def _count_source_files(self, repo_path: str) -> int:
@@ -201,7 +205,7 @@ class CodeQualityMetric(Metric):
             for file in files:
                 if Path(file).suffix.lower() in source_extensions:
                     count += 1
-        print("Source files found:", count)
+        logger.debug("Source files found: {}", count)
         return count
 
     def _evaluate_documentation(self, repo_path: str) -> float:

@@ -83,7 +83,7 @@ def test_github_fetcher_success():
 
     # Mock commit activity response
     commit_response = MagicMock(ok=True)
-    commit_response.json.return_value = [{}] * 150  # 150 commits in last 30 days
+    commit_response.json.return_value = [{}] * 150  # 150 commits
 
     session.get.side_effect = [
         contrib_response,
@@ -102,7 +102,7 @@ def test_github_fetcher_success():
         "clone_url": "https://github.com/org/repo.git",
         "stargazers_count": 100,
         "forks_count": 50,
-        "avg_daily_commits_30d": 5,
+        "commits_count": 150,
     }
     assert session.get.call_count == 4
 
@@ -147,7 +147,7 @@ def test_github_fetcher_partial_failure():
 
     # Commit response succeeds
     commit_response = MagicMock(ok=True)
-    commit_response.json.return_value = [{}] * 150  # 150 commits in last 30 days
+    commit_response.json.return_value = [{}] * 150  # 150 commits
 
     session.get.side_effect = [
         contrib_response,
@@ -164,7 +164,7 @@ def test_github_fetcher_partial_failure():
         "clone_url": "https://github.com/org/repo.git",
         "stargazers_count": 100,
         "forks_count": 50,
-        "avg_daily_commits_30d": 5,
+        "commits_count": 150,
     }
     assert session.get.call_count == 4
 
