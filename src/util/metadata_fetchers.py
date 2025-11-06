@@ -67,7 +67,7 @@ class HuggingFaceFetcher(MetadataFetcher):
 
     def fetch_metadata(self, url: Optional[str]) -> Dict[str, Any]:
         """Fetch Hugging Face model metadata."""
-        metadata = {}
+        metadata: Dict[str, Any] = {}
 
         # Verify URL Exists
         # - Should Always Exist for Model URLs
@@ -136,7 +136,7 @@ class GitHubFetcher(MetadataFetcher):
     def __init__(
         self,
         token: Optional[str] = None,
-        session: Optional[requests.Session] = None
+        session: Optional[requests.Session] = None,
     ) -> None:
         self.token = token
         self.session = session or requests.Session()
@@ -144,7 +144,7 @@ class GitHubFetcher(MetadataFetcher):
 
     def fetch_metadata(self, url: Optional[str]) -> Dict[str, Any]:
         """Fetch GitHub repository metadata."""
-        metadata = {}
+        metadata: Dict[str, Any] = {}
 
         # Verify URL Exists
         # - May Not Exist if No Code Link Provided
@@ -231,12 +231,13 @@ class GitHubFetcher(MetadataFetcher):
 
 class DatasetFetcher(MetadataFetcher):
     """Fetches dataset metadata from Hugging Face datasets API."""
+
     def __init__(self, session: Optional[requests.Session] = None) -> None:
         self.session = session or requests.Session()
         self.BASE_API_URL = "https://huggingface.co/api/datasets"
 
     def fetch_metadata(self, url: Optional[str]) -> Dict[str, Any]:
-        metadata = {}
+        metadata: Dict[str, Any] = {}
 
         # Verify URL Exists
         # - May Not Exist if No Dataset Link Provided

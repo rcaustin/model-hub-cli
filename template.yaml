@@ -1,0 +1,71 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - prod
+  
+Resources:
+  ModelHubFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/lambda_handler.lambda_handler
+      Runtime: python3.9
+      Architectures:
+          - x86_64
+      AutoPublishAlias: prod
+      Environment:
+        Variables:
+          ENVIRONMENT: !Ref Environment
+      Policies:
+        - AWSLambdaBasicExecutionRole
+      Events:
+        ApiEvent:
+          Type: HttpApi
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+
+  # API Gateway
+  ModelHubApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: $default
+      CorsConfiguration:
+        AllowMethods:
+          - 'GET'
+          - 'POST'
+          - 'PUT'
+          - 'DELETE'
+          - 'OPTIONS'
+        AllowHeaders:
+          - '*'
+        AllowOrigins:
+          - '*'
+
+  #GET model rate endpoint
+  GetModelRateFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: lambdas/model_rate.lambda_handler
+      Runtime: python3.9
+      Events:
+        ApiEvent:
+          Type: HttpApi
+          Properties:
+            Path: /artifact/model/{id}/rate
+            Method: GET
+
+Outputs:
+  ApiEndpoint:
+    Description: API Gateway endpoint URL
+    Value: !Sub "https://${ModelHubApi}.execute-api.${AWS::Region}.amazonaws.com/"
+  FunctionArn:
+    Description: Lambda function ARN
+    Value: !GetAtt ModelHubFunction.Arn

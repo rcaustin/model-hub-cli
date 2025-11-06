@@ -63,11 +63,22 @@ class CodeQualityMetric(Metric):
         """
         logger.info("Evaluating CodeQualityMetric...")
 
-        if not getattr(model, "_github_metadata", None):
+        # Prefer explicit private cache when tests/mocks set it; otherwise use
+        # the public `github_metadata` property. Ensure we end up with a dict.
+        gh_meta = {}
+        if getattr(model, "_github_metadata", None) and isinstance(
+            getattr(model, "_github_metadata"), dict
+        ):
+            gh_meta = getattr(model, "_github_metadata")
+        elif getattr(model, "github_metadata", None) and isinstance(
+            getattr(model, "github_metadata"), dict
+        ):
+            gh_meta = getattr(model, "github_metadata")
+
+        if not gh_meta:
             logger.info("CodeQualityMetric: No GitHub metadata found → 0.0")
             return 0.0
 
-        gh_meta = model._github_metadata
         clone_url = gh_meta.get("clone_url")
 
         popularity_score = self._calculate_popularity_score(gh_meta)
@@ -76,7 +87,8 @@ class CodeQualityMetric(Metric):
         if not clone_url:
             total = popularity_score + commit_score
             logger.info(
-                "CodeQualityMetric: No clone URL, returning base score {:.3f}", total
+                "CodeQualityMetric: No clone URL, returning base score {:.3f}",
+                total,
             )
             return min(total, 1.0)
 
@@ -84,15 +96,14 @@ class CodeQualityMetric(Metric):
             with tempfile.TemporaryDirectory() as temp_dir:
                 if self._clone_repository(clone_url, temp_dir):
                     test_score, doc_score = self._clone_and_analyze(temp_dir)
-                    total = (
-                        popularity_score + commit_score + test_score + doc_score
-                    )
+                    total = popularity_score + commit_score + test_score + doc_score
                     logger.info("Popularity Score: {:.3f}", popularity_score)
                     logger.info("Total Commits Score: {:.3f}", commit_score)
                     logger.info("Test Score: {:.3f}", test_score)
                     logger.info("Documentation Score: {:.3f}", doc_score)
                     logger.info(
-                        "CodeQualityMetric: Full analysis score → {:.3f}", total
+                        "CodeQualityMetric: Full analysis score → {:.3f}",
+                        total,
                     )
                     return min(total, 1.0)
                 else:
@@ -165,13 +176,24 @@ class CodeQualityMetric(Metric):
         """Count test files across all programming languages (no duplicates)."""
         test_patterns = [
             # Directory patterns
-            "tests/**/*", "test/**/*", "**/tests/**/*", "**/test/**/*",
-            "spec/**/*", "**/spec/**/*", "__tests__/**/*", "**/__tests__/**/*",
-            "src/test/**/*", "**/src/test/**/*",
-
+            "tests/**/*",
+            "test/**/*",
+            "**/tests/**/*",
+            "**/test/**/*",
+            "spec/**/*",
+            "**/spec/**/*",
+            "__tests__/**/*",
+            "**/__tests__/**/*",
+            "src/test/**/*",
+            "**/src/test/**/*",
             # File patterns (these cover all the specific ones)
-            "**/test_*.*", "**/*_test.*", "**/*Test.*", "**/*Tests.*",
-            "**/*.test.*", "**/*.spec.*", "**/Test*.*",
+            "**/test_*.*",
+            "**/*_test.*",
+            "**/*Test.*",
+            "**/*Tests.*",
+            "**/*.test.*",
+            "**/*.spec.*",
+            "**/Test*.*",
         ]
 
         # Use a set to avoid counting the same file multiple times
@@ -188,18 +210,39 @@ class CodeQualityMetric(Metric):
     def _count_source_files(self, repo_path: str) -> int:
         """Count source files based on extensions in non-test folders."""
         source_extensions = {
-            ".py", ".js", ".ts", ".java", ".cpp", ".c", ".h", ".hpp", ".cs", ".go",
-            ".rs", ".php", ".rb", ".swift", ".kt", ".scala"
+            ".py",
+            ".js",
+            ".ts",
+            ".java",
+            ".cpp",
+            ".c",
+            ".h",
+            ".hpp",
+            ".cs",
+            ".go",
+            ".rs",
+            ".php",
+            ".rb",
+            ".swift",
+            ".kt",
+            ".scala",
         }
 
         count = 0
         for root, dirs, files in os.walk(repo_path):
             dirs[:] = [
-                d for d in dirs
+                d
+                for d in dirs
                 if not d.startswith(".")
-                and d not in {
-                    "node_modules", "venv", "__pycache__", "build", "dist",
-                    "tests", "test"
+                and d
+                not in {
+                    "node_modules",
+                    "venv",
+                    "__pycache__",
+                    "build",
+                    "dist",
+                    "tests",
+                    "test",
                 }
             ]
             for file in files:
@@ -220,9 +263,7 @@ class CodeQualityMetric(Metric):
             score += 0.05
             found_docs.append("LICENSE")
 
-        if any(Path(repo_path).glob("README*")) or any(
-            Path(repo_path).glob("readme*")
-        ):
+        if any(Path(repo_path).glob("README*")) or any(Path(repo_path).glob("readme*")):
             score += 0.05
             found_docs.append("README")
 

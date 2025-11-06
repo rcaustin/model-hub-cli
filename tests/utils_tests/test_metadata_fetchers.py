@@ -1,5 +1,9 @@
 from unittest.mock import MagicMock
-from src.util.metadata_fetchers import HuggingFaceFetcher, GitHubFetcher, DatasetFetcher
+from src.util.metadata_fetchers import (
+    HuggingFaceFetcher,
+    GitHubFetcher,
+    DatasetFetcher,
+)
 
 
 # HuggingFaceFetcher Tests
